@@ -1,0 +1,24 @@
+@startuml
+title CRM-Агентство — проекты и кабинет клиента (UC-5)
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+actor "Руководитель отдела\nпродаж" as Head
+actor Клиент as Client
+actor Директор as Director
+rectangle "CRM-Агентство" {
+  usecase "UC-5\nКонтроль этапов\nпроекта" as UC5
+  usecase "Личный кабинет:\nтекущие заказы\nи архив" as Portal
+  usecase "Сводная панель:\nпроекты и ожидаемая\nвыручка" as Dashboard
+}
+UC5 -[hidden]down- Portal
+Portal -[hidden]down- Dashboard
+Head -- UC5
+Client -- Portal
+Director -- Dashboard
+note right of UC5
+  Ответственный отмечает этап;
+  руководитель видит статусы проектов.
+end note
+@enduml

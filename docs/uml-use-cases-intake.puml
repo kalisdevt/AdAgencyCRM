@@ -1,0 +1,22 @@
+@startuml
+title CRM-Агентство — прием обращений (UC-1)
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+actor "Telegram-бот" as Telegram
+actor "Веб-форма\nсайта" as Web
+actor "Сообщество VK\n(желательно)" as VK
+rectangle "CRM-Агентство" {
+  usecase "UC-1\nКонсолидация входящих\nзаявок" as UC1
+}
+Telegram -- UC1
+Web -- UC1
+VK -- UC1
+note right of UC1
+  Каналы Telegram и сайт обязательны.
+  VK — желательный канал.
+  Повтор сообщения не создает дубль.
+end note
+@enduml

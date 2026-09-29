@@ -1,0 +1,63 @@
+@startuml
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam defaultFontName Arial
+left to right direction
+
+actor "Сотрудник" as Staff
+actor Клиент as Customer
+cloud "Telegram Bot API" as TgAPI
+cloud "Веб-форма сайта" as SiteForm
+cloud "VK API\n(желательно)" as VkAPI
+database "PostgreSQL" as DB
+folder "Файловое хранилище" as Files
+
+package "CRM-Агентство" {
+  package "Клиентская часть" {
+    [Веб-интерфейс сотрудников] as StaffUI
+    [Личный кабинет клиента] as Portal
+  }
+  package "Серверная часть: REST API" {
+    [REST API] as API
+    [Аутентификация и роли] as Auth
+    [Лиды и коммуникации] as Leads
+    [Сделки и воронка продаж] as Deals
+    [Задачи и проекты] as Projects
+    [Документы и продажи] as Docs
+    [Аналитика и отчеты] as Analytics
+    [Уведомления] as Notifications
+    package "Адаптеры каналов" {
+      [Telegram-адаптер] as TgAdapter
+      [Адаптер веб-формы] as WebAdapter
+      [VK-адаптер (желательно)] as VkAdapter
+    }
+  }
+}
+
+Staff --> StaffUI
+Customer --> Portal
+StaffUI --> API : REST / HTTPS
+Portal --> API : REST / HTTPS
+API --> Auth
+API --> Leads
+API --> Deals
+API --> Projects
+API --> Docs
+API --> Analytics
+TgAPI --> TgAdapter : webhook / send
+SiteForm --> WebAdapter : HTTPS POST
+VkAPI --> VkAdapter : webhook / send
+TgAdapter --> API : единый формат события
+WebAdapter --> API : единый формат события
+VkAdapter --> API : единый формат события
+Leads --> DB
+Deals --> DB
+Projects --> DB
+Docs --> DB
+Analytics --> DB
+Projects --> Files : макеты и вложения
+Docs --> Files : PDF счета
+Leads --> Notifications
+Projects --> Notifications
+Notifications --> TgAdapter : желательная отправка клиенту
+@enduml

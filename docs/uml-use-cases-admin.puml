@@ -1,0 +1,15 @@
+@startuml
+title CRM-Агентство — администрирование
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+actor Администратор as Admin
+rectangle "CRM-Агентство" {
+  usecase "Управление учетными\nзаписями и ролями" as Accounts
+  usecase "Ведение справочников\n(желательно)" as Catalogs
+}
+Accounts -[hidden]down- Catalogs
+Admin -- Accounts
+Admin -- Catalogs
+@enduml

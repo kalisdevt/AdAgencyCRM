@@ -1,0 +1,19 @@
+@startuml
+title CRM-Агентство — задачи и макеты (UC-3)
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+actor "Менеджер по работе\nс клиентами" as Manager
+actor Дизайнер as Designer
+rectangle "CRM-Агентство" {
+  usecase "UC-3\nПодготовка КП\nи постановка задачи" as UC3
+}
+Manager -- UC3
+Designer -- UC3
+note right of UC3
+  Задача содержит описание,
+  исполнителя и срок; макеты
+  прикрепляются к задаче.
+end note
+@enduml

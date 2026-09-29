@@ -1,0 +1,40 @@
+@startuml
+title Прием обращения и создание лида (UC-1, UC-2)
+autonumber
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor "Клиент" as Customer
+participant "Telegram Bot API\nили веб-форма" as Source
+participant "Адаптер канала" as Adapter
+participant "REST API /\nобработчик входящих" as API
+database "PostgreSQL" as DB
+participant "Веб-интерфейс\nсотрудника" as UI
+
+alt Обращение через Telegram
+  Customer -> Source : отправляет сообщение
+  Source -> Adapter : webhook с ID сообщения
+else Заявка через сайт
+  Customer -> Source : отправляет форму
+  Source -> Adapter : HTTP POST с контактами и UTM
+end
+Adapter -> API : событие в общем формате
+API -> DB : проверить уникальный ID источника
+alt Событие уже обработано
+  DB --> API : найдено существующее сообщение
+  API --> Adapter : подтвердить прием без создания дубля
+else Новое обращение
+  API -> DB : найти клиента по ID канала / телефону / e-mail
+  alt Клиент найден
+    DB --> API : карточка клиента
+  else Клиент не найден
+    API -> DB : создать карточку клиента
+    DB --> API : ID клиента
+  end
+  API -> DB : создать лид и сохранить сообщение/UTM
+  DB --> API : ID лида и сохраненные данные
+  API -> UI : обновить ленту «Входящие»
+  UI --> API : подтверждение обновления
+  API --> Adapter : подтвердить обработку
+end
+@enduml

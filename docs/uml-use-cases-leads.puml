@@ -1,0 +1,21 @@
+@startuml
+title CRM-Агентство — обработка лидов (UC-2, UC-8)
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+actor "Менеджер по работе\nс клиентами" as Manager
+rectangle "CRM-Агентство" {
+  usecase "UC-2\nПервичная обработка\nлида" as UC2
+  usecase "UC-8\nРабота с повторным\nклиентом (желательно)" as UC8
+}
+UC2 -[hidden]down- UC8
+Manager -- UC2
+UC8 ..> UC2 : <<extend>>
+note right of UC2
+  Поиск клиента, создание карточки
+  и лида, ответ клиенту,
+  назначение ответственного.
+end note
+@enduml

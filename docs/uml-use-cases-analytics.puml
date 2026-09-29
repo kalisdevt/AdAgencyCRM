@@ -1,0 +1,24 @@
+@startuml
+title CRM-Агентство — аналитика (UC-4, UC-6, UC-9)
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+actor Маркетолог as Marketer
+actor "Руководитель отдела\nпродаж" as Head
+rectangle "CRM-Агентство" {
+  usecase "UC-4\nАнализ каналов\nи кампаний" as UC4
+  usecase "UC-9\nАнализ причин\nотказа" as UC9
+  usecase "UC-6\nОценка работы\nменеджеров" as UC6
+}
+UC4 -[hidden]down- UC9
+UC9 -[hidden]down- UC6
+Marketer -- UC4
+Marketer -- UC9
+Head -- UC9
+Head -- UC6
+note right of UC4
+  Расходы и CSV-экспорт —
+  желательные функции.
+end note
+@enduml

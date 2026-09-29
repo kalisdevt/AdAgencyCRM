@@ -1,0 +1,19 @@
+@startuml
+title CRM-Агентство — счета (UC-7)
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+actor "Менеджер по работе\nс клиентами" as Manager
+actor "Telegram-бот\n(отправка желательна)" as Telegram
+rectangle "CRM-Агентство" {
+  usecase "UC-7\nСоздание и отправка счета" as UC7
+}
+Manager -- UC7
+Telegram -- UC7
+note right of UC7
+  Создание PDF, скачивание
+  и ручная смена статуса — обязательно.
+  Отправка PDF в Telegram — желательно.
+end note
+@enduml
