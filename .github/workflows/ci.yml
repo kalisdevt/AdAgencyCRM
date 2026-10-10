@@ -1,0 +1,161 @@
+# Пайплайн: проверки на каждый pull request и push в master,
+# после успешных проверок в master — деплой на Vercel.
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: 24
+
+# Действия закреплены по SHA коммита (требование SAST): тег можно переназначить, коммит — нет.
+jobs:
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      # Статический анализ безопасности: правила для JavaScript/Node.js, секретов, Dockerfile и GitHub Actions.
+      # --error завершает задание с ошибкой, если есть находки.
+      - run: >
+          semgrep scan --error --metrics=off
+          --config p/javascript --config p/nodejs --config p/expressjs
+          --config p/security-audit --config p/secrets --config p/dockerfile
+          --config p/github-actions
+          --exclude docs --exclude '*.lock' --exclude package-lock.json
+
+  master-is-merged:
+    name: Master is merged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          # для pull request проверяем саму ветку, а не временный merge-коммит GitHub
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      # Ветка должна содержать все коммиты master: иначе проверки шли бы на устаревшем коде.
+      - name: Проверить, что master влит в ветку
+        run: |
+          git fetch --no-tags origin master
+          if git merge-base --is-ancestor origin/master HEAD; then
+            echo "Ветка содержит актуальный master ($(git rev-parse --short origin/master))."
+          else
+            echo "::error::В ветке нет последних коммитов master. Выполните: git fetch origin && git merge origin/master"
+            exit 1
+          fi
+
+  tests:
+    name: Интеграционные тесты
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: crm
+          POSTGRES_PASSWORD: crm
+          POSTGRES_DB: crm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crm -d crm"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://crm:crm@localhost:5432/crm
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+
+  build:
+    name: Сборка клиента и образов
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      # Те же образы, что собирает Vercel: ошибка в Dockerfile.vercel ловится до деплоя
+      - run: docker build -f backend/Dockerfile.vercel backend
+      - run: docker build -f frontend/Dockerfile.vercel frontend
+
+  deploy:
+    name: Деплой на Vercel
+    # Только после всех проверок и только для master
+    needs: [eslint, sast, master-is-merged, tests, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Проверить, что секреты Vercel заданы
+        run: |
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Не задан секрет $name (Settings → Secrets and variables → Actions). См. docs/deploy-vercel.md"
+              exit 1
+            fi
+          done
+      - run: npm install --global vercel@63
+      # Образы сервисов собирает сам Vercel по Dockerfile.vercel
+      - name: Деплой в production
+        id: deploy
+        run: |
+          url="$(vercel deploy --prod --yes --token "$VERCEL_TOKEN")"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Развернуто: $url" >> "$GITHUB_STEP_SUMMARY"
