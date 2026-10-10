@@ -21,3 +21,5 @@ backups/
 
 # Локальная привязка к проекту Vercel
 .vercel/
+.vercel
+.env*
