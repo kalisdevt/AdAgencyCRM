@@ -75,6 +75,12 @@ docker compose up --build
 
 Сообщение боту появляется во «Входящих», ответ из панели диалога приходит клиенту в Telegram.
 
+## Деплой и пайплайн
+
+Проект разворачивается на Vercel (бесплатный план): клиент и API — контейнеры из `Dockerfile.vercel`, база — Neon PostgreSQL. Пошаговая инструкция: [docs/deploy-vercel.md](docs/deploy-vercel.md).
+
+Пайплайн GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый pull request и push в `master` выполняет ESLint, SAST (Semgrep), проверку «Master is merged», интеграционные тесты и сборку образов; после успешных проверок в `master` — деплой на Vercel.
+
 ## Разработка
 
 Нужны Node.js ≥ 22.18 и Docker (для PostgreSQL).
@@ -101,6 +107,8 @@ npm run dev                             # клиент: http://localhost:5173
 cd backend && npm test
 ```
 
+Линтер (ESLint) запускается в обеих частях командой `npm run lint`.
+
 Интеграционные тесты поднимают приложение и работают с отдельной базой `crm_test` на том же сервере PostgreSQL (создается автоматически), Telegram Bot API подменяется.
 
 ## Структура
@@ -122,7 +130,9 @@ frontend/
   src/views/             экраны: вход, «Входящие», карточка клиента, пользователи, форма сайта
   src/styles/            стили: base.css (переменные, сброс), components.css (кнопки, поля),
                          и по файлу на экран — подключаются из .vue через <style scoped src>
-docs/                    ТЗ, UML-диаграммы, декомпозиция, OpenAPI, состояние проекта
+docs/                    ТЗ, UML-диаграммы, декомпозиция, OpenAPI, состояние проекта, инструкция деплоя
+.github/workflows/       пайплайн CI/CD
+vercel.json              сервисы и маршрутизация на Vercel
 scripts/                 резервное копирование и восстановление БД
 ```
 
@@ -163,6 +173,9 @@ scripts/                 резервное копирование и восст
 | `TELEGRAM_BOT_TOKEN` | Токен бота; без него канал отключен | — |
 | `TELEGRAM_POLLING` | `true` — получать сообщения длинным опросом | `false` |
 | `TELEGRAM_WEBHOOK_SECRET` | Секрет вебхука Telegram; без него вебхук закрыт | — |
+| `DATABASE_URL_UNPOOLED` | Прямое соединение для миграций, если `DATABASE_URL` ведет через пул соединений (Neon) | значение `DATABASE_URL` |
+| `DB_POOL_MAX` | Размер пула соединений с БД | `10` |
+| `TRUST_PROXY` | Настройка Express `trust proxy`: число прокси, `true` или список сетей | `loopback, uniquelocal` |
 | `SEED_DEMO` | `true` — создать демо-данные при старте | `false` (в Docker Compose — `true`) |
 | `SEED_PASSWORD` | Пароль демо-пользователей | `demo12345` |
 
