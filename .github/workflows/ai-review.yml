@@ -1,0 +1,86 @@
+# ИИ-ревью pull request: Claude читает изменения и оставляет замечания
+# комментариями к строкам. Настройка — docs/pull-requests.md.
+name: AI review
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: AI review (Claude)
+    # Черновики не проверяем; для pull request из форков GitHub не выдает секреты
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      # нужно действию для входа от имени GitHub-приложения Claude
+      id-token: write
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    steps:
+      # Задание не должно быть зеленым, если ревью не было: без токена сразу ошибка
+      - name: Проверить, что ревью настроено
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::ИИ-ревью не настроено: не задан секрет CLAUDE_CODE_OAUTH_TOKEN. См. docs/pull-requests.md"
+            exit 1
+          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@7806b44efdf0782087085511dc7e5cdd6de05b9d # v1.0.248
+        id: claude
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          # --comment: замечания публикуются в pull request, а не только в журнале запуска
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+      # Действие завершается успешно, даже когда пропустило ревью, поэтому результат проверяем сами:
+      # в pull request должен быть хотя бы один комментарий от Claude.
+      - name: Убедиться, что ревью опубликовано
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+        run: |
+          count_by_claude() {
+            gh api --paginate "repos/$REPO/$1" --jq '.[] | select(.user.login | test("^claude(\\[bot\\])?$")) | .id' | wc -l
+          }
+          comments=$(( $(count_by_claude "issues/$PR/comments") + $(count_by_claude "pulls/$PR/comments") + $(count_by_claude "pulls/$PR/reviews") ))
+
+          if [ "$comments" -gt 0 ]; then
+            echo "Ревью опубликовано: комментариев Claude в pull request — $comments." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Действие отказывается работать, если pull request меняет сам файл workflow
+          # (он должен совпадать с версией в master) — это единственное допустимое исключение.
+          if gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename' | grep -qx '.github/workflows/ai-review.yml'; then
+            echo "::warning::ИИ-ревью не выполнялось: pull request изменяет ai-review.yml, а действие запускается только с версией файла из master."
+            echo "ИИ-ревью не выполнялось: pull request изменяет сам workflow ревью." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "$CLAUDE_CONCLUSION" = "success" ]; then
+            echo "::error::Claude отработал, но не опубликовал ревью (например, счел изменения тривиальными). Перезапустите задание или проверьте журнал шага выше."
+          else
+            echo "::error::ИИ-ревью не выполнялось: действие было пропущено. Причина — в предупреждениях (Annotations) этого запуска."
+          fi
+          exit 1
