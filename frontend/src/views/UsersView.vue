@@ -112,13 +112,13 @@ onMounted(load)
               <b>{{ user.fullName }}</b>
               <small v-if="user.email">{{ user.email }}</small>
             </td>
-            <td class="mono">{{ user.login }}</td>
-            <td>
+            <td class="mono" data-label="Логин">{{ user.login }}</td>
+            <td data-label="Роль">
               <select class="control role-select" :value="user.role" :disabled="isSelf(user) || busyId === user.id" :aria-label="`Роль: ${user.fullName}`" @change="update(user, { role: $event.target.value })">
                 <option v-for="role in roles" :key="role.code" :value="role.code" :disabled="role.code === 'client' && !user.clientId">{{ role.name }}</option>
               </select>
             </td>
-            <td><span class="badge" :class="user.isActive ? 'badge-accent' : 'badge-danger'">{{ user.isActive ? 'Активен' : 'Заблокирован' }}</span></td>
+            <td data-label="Статус"><span class="badge" :class="user.isActive ? 'badge-accent' : 'badge-danger'">{{ user.isActive ? 'Активен' : 'Заблокирован' }}</span></td>
             <td class="actions">
               <span v-if="isSelf(user)" class="muted">Это вы</span>
               <button v-else class="btn btn-ghost btn-small" type="button" :disabled="busyId === user.id" @click="update(user, { isActive: !user.isActive })">
@@ -132,25 +132,4 @@ onMounted(load)
   </div>
 </template>
 
-<style scoped>
-.page { max-width: 1080px; display: flex; flex-direction: column; gap: 16px; padding: 24px 28px 40px; }
-.page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-.page-header h1 { margin: 0; font-size: 26px; letter-spacing: -.04em; }
-.page-header p { margin: 6px 0 0; font-size: 13px; }
-.create-form { display: flex; flex-direction: column; gap: 16px; padding: 20px; }
-.create-form h2 { margin: 0; font-size: 15px; }
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-.form-actions { display: flex; gap: 8px; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { padding: 12px 16px; border-bottom: 1px solid var(--line); color: var(--ink-muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-align: left; text-transform: uppercase; white-space: nowrap; }
-td { padding: 11px 16px; border-bottom: 1px solid #eff1ec; vertical-align: middle; }
-tbody tr:last-child td { border-bottom: 0; }
-td b, td small { display: block; }
-td small { margin-top: 3px; color: var(--ink-muted); font-size: 12px; }
-tr.blocked td b, tr.blocked .mono { color: var(--ink-muted); }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-.role-select { min-width: 190px; height: 32px; font-size: 12px; }
-.actions { text-align: right; white-space: nowrap; }
-.actions .muted { font-size: 12px; }
-</style>
+<style scoped src="../styles/users.css"></style>
