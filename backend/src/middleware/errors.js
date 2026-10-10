@@ -5,7 +5,7 @@ export function notFoundHandler(req, res) {
   res.status(404).json({ error: { code: 'not_found', message: 'Маршрут не найден' } })
 }
 
-// eslint-disable-next-line no-unused-vars
+// Четвертый параметр обязателен: по нему Express отличает обработчик ошибок
 export function errorHandler(error, req, res, next) {
   if (error instanceof ZodError) {
     const details = error.issues.map((issue) => ({ field: issue.path.join('.'), message: issue.message }))
