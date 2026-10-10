@@ -1,5 +1,5 @@
-# Пайплайн: проверки на каждый pull request и push в master,
-# после успешных проверок в master — деплой на Vercel.
+# Проверки на каждый pull request и push в master.
+# Деплой вынесен в deploy.yml: он запускается после успешного прохождения этих проверок в master.
 name: CI/CD
 
 on:
@@ -124,38 +124,3 @@ jobs:
       # Те же образы, что собирает Vercel: ошибка в Dockerfile.vercel ловится до деплоя
       - run: docker build -f backend/Dockerfile.vercel backend
       - run: docker build -f frontend/Dockerfile.vercel frontend
-
-  deploy:
-    name: Деплой на Vercel
-    # Только после всех проверок и только для master
-    needs: [eslint, sast, master-is-merged, tests, build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Проверить, что секреты Vercel заданы
-        run: |
-          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
-            if [ -z "${!name}" ]; then
-              echo "::error::Не задан секрет $name (Settings → Secrets and variables → Actions). См. docs/deploy-vercel.md"
-              exit 1
-            fi
-          done
-      - run: npm install --global vercel@63
-      # Образы сервисов собирает сам Vercel по Dockerfile.vercel
-      - name: Деплой в production
-        id: deploy
-        run: |
-          url="$(vercel deploy --prod --yes --token "$VERCEL_TOKEN")"
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "Развернуто: $url" >> "$GITHUB_STEP_SUMMARY"

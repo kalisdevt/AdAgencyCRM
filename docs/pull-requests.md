@@ -78,7 +78,7 @@ git push -u origin feature/название
 git fetch origin && git merge origin/master
 ```
 
-После слияния pull request пайплайн на `master` повторяет проверки и разворачивает проект на Vercel.
+После слияния pull request проверки повторяются на `master`, и при успехе отдельный workflow «Deploy» разворачивает проект на Vercel. В самом pull request задания деплоя нет.
 
 ## Защита ветки master
 

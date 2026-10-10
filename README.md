@@ -79,7 +79,7 @@ docker compose up --build
 
 Проект разворачивается на Vercel (бесплатный план): клиент и API — контейнеры из `Dockerfile.vercel`, база — Neon PostgreSQL. Пошаговая инструкция: [docs/deploy-vercel.md](docs/deploy-vercel.md).
 
-Пайплайн GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый pull request и push в `master` выполняет ESLint, SAST (Semgrep), проверку «Master is merged», интеграционные тесты и сборку образов; после успешных проверок в `master` — деплой на Vercel.
+Пайплайн GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый pull request и push в `master` выполняет ESLint, SAST (Semgrep), проверку «Master is merged», интеграционные тесты и сборку образов. После успешных проверок в `master` отдельный workflow ([deploy.yml](.github/workflows/deploy.yml)) разворачивает проект на Vercel.
 
 Каждый pull request дополнительно проходит ИИ-ревью (Claude оставляет замечания к строкам). Настройка ревью и защиты ветки `master`: [docs/pull-requests.md](docs/pull-requests.md).
 

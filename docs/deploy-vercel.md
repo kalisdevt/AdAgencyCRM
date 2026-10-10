@@ -104,7 +104,7 @@ vercel deploy --prod
 
 ## Шаг 6. Пайплайн
 
-Пайплайн описан в [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) и запускается на каждый pull request в `master` и на каждый push в `master`.
+Проверки описаны в [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) и запускаются на каждый pull request в `master` и на каждый push в `master`. Деплой — отдельный workflow [`deploy.yml`](../.github/workflows/deploy.yml): он стартует сам, когда проверки успешно завершились для push в `master`, поэтому в pull request задания деплоя нет.
 
 | Задание | Что проверяет |
 |---|---|
@@ -113,11 +113,11 @@ vercel deploy --prod
 | **Master is merged** | ветка содержит все коммиты `master` — проверки идут на актуальном коде |
 | **Интеграционные тесты** | 34 теста API на настоящем PostgreSQL |
 | **Сборка клиента и образов** | `vite build` и сборка обоих `Dockerfile.vercel` |
-| **Деплой на Vercel** | последний этап: только для push в `master` и только если все задания выше прошли |
+| **Деплой на Vercel** (`deploy.yml`) | последний этап: только после push в `master` и только если все задания выше прошли |
 
 Автоматический деплой самого Vercel при push отключен (`git.deploymentEnabled: false` в `vercel.json`), иначе код попадал бы в production в обход проверок.
 
-После `git push origin master` откройте вкладку **Actions**: адрес развернутой версии появится в сводке задания «Деплой на Vercel».
+После слияния в `master` откройте вкладку **Actions**: сначала идет запуск «CI/CD», за ним — «Deploy»; адрес развернутой версии появится в его сводке.
 
 Проверки pull request, ИИ-ревью и защита ветки `master` описаны в [pull-requests.md](pull-requests.md).
 

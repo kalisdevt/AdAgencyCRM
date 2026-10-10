@@ -1,0 +1,62 @@
+# Деплой на Vercel. Запускается сам, когда пайплайн проверок (ci.yml) успешно
+# завершился для push в master, поэтому в pull request этого задания нет.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI/CD]
+    types: [completed]
+    branches: [master]
+
+permissions:
+  contents: read
+
+# Деплои идут по очереди: новый не обгоняет предыдущий
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Деплой на Vercel
+    # Только если все проверки прошли и запуск был вызван push в master, а не pull request
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      # Разворачиваем ровно тот коммит, который прошел проверки.
+      # Правило Semgrep предупреждает о checkout чужого кода в workflow_run с доступом к секретам.
+      # Здесь это исключено условием задания: запуск идет только для push в master этого репозитория,
+      # то есть head_sha — уже принятый коммит master, а не код из pull request.
+      # nosemgrep: yaml.github-actions.security.workflow-run-target-code-checkout.workflow-run-target-code-checkout
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+      - name: Проверить, что секреты Vercel заданы
+        run: |
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Не задан секрет $name (Settings → Secrets and variables → Actions). См. docs/deploy-vercel.md"
+              exit 1
+            fi
+          done
+      - run: npm install --global vercel@63
+      # Образы сервисов собирает сам Vercel по Dockerfile.vercel
+      - name: Деплой в production
+        id: deploy
+        run: |
+          url="$(vercel deploy --prod --yes --token "$VERCEL_TOKEN")"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Развернуто: $url" >> "$GITHUB_STEP_SUMMARY"
