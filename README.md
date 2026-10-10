@@ -81,6 +81,8 @@ docker compose up --build
 
 Пайплайн GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый pull request и push в `master` выполняет ESLint, SAST (Semgrep), проверку «Master is merged», интеграционные тесты и сборку образов; после успешных проверок в `master` — деплой на Vercel.
 
+Каждый pull request дополнительно проходит ИИ-ревью (Claude оставляет замечания к строкам). Настройка ревью и защиты ветки `master`: [docs/pull-requests.md](docs/pull-requests.md).
+
 ## Разработка
 
 Нужны Node.js ≥ 22.18 и Docker (для PostgreSQL).

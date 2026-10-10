@@ -119,7 +119,7 @@ vercel deploy --prod
 
 После `git push origin master` откройте вкладку **Actions**: адрес развернутой версии появится в сводке задания «Деплой на Vercel».
 
-Чтобы в `master` нельзя было влить непроверенный код, включите защиту ветки: **Settings → Branches → Add rule** для `master` → *Require status checks to pass* → отметьте ESLint, SAST, Master is merged, тесты и сборку.
+Проверки pull request, ИИ-ревью и защита ветки `master` описаны в [pull-requests.md](pull-requests.md).
 
 Локально те же проверки:
 

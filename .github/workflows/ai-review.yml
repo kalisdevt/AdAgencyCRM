@@ -1,0 +1,56 @@
+# ИИ-ревью pull request: Claude читает изменения и оставляет замечания
+# комментариями к строкам. Настройка — docs/pull-requests.md.
+name: AI review
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: AI review (Claude)
+    # Черновики не проверяем; для pull request из форков GitHub не выдает секреты
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      # нужно действию для входа от имени GitHub-приложения Claude
+      id-token: write
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    steps:
+      - name: Проверить, что ревью настроено
+        id: setup
+        run: |
+          if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::ИИ-ревью пропущено: не задан секрет CLAUDE_CODE_OAUTH_TOKEN. См. docs/pull-requests.md"
+            echo "ИИ-ревью пропущено: не задан секрет \`CLAUDE_CODE_OAUTH_TOKEN\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        if: steps.setup.outputs.enabled == 'true'
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@7806b44efdf0782087085511dc7e5cdd6de05b9d # v1.0.248
+        if: steps.setup.outputs.enabled == 'true'
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          # --comment: замечания публикуются в pull request, а не только в журнале запуска
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
