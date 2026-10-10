@@ -8,6 +8,9 @@ import { migrate } from './migrate.js'
 
 // Пароль демо-учеток: одинаковый для всех, переопределяется переменной SEED_PASSWORD
 const DEMO_PASSWORD = process.env.SEED_PASSWORD || 'demo12345'
+if (config.isProduction && !process.env.SEED_PASSWORD && process.env.SEED_DEMO === 'true') {
+  console.warn('Демо-учетки создаются с общеизвестным паролем — только для демонстрации на тестовых данных')
+}
 
 const DEMO_USERS = [
   { login: 'admin', fullName: 'Алексей Администратор', role: 'admin' },

@@ -10,6 +10,13 @@ const pool = createPool(config.databaseUrl)
 const applied = await migrate(pool)
 if (applied.length) console.log(`Применены миграции: ${applied.join(', ')}`)
 
+if (process.env.SEED_DEMO === 'true') {
+  const { seedUsers, seedInquiries } = await import('./db/seed.js')
+  const users = await seedUsers(pool)
+  const inquiries = await seedInquiries(pool)
+  if (users || inquiries) console.log(`Демо-данные: пользователей ${users}, обращений ${inquiries}`)
+}
+
 const channels = createChannels({ telegram: { token: config.telegram.token } })
 const app = createApp({ pool, channels })
 

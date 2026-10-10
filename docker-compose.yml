@@ -26,11 +26,21 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_POLLING: ${TELEGRAM_POLLING:-false}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      # Демо-пользователи и тестовые обращения при первом запуске; отключается SEED_DEMO=false
+      SEED_DEMO: ${SEED_DEMO:-true}
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
     ports:
       - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
 
 volumes:
   db-data:
