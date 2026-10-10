@@ -20,8 +20,8 @@ export function createApp({
 }) {
   const app = express()
   app.disable('x-powered-by')
-  // За обратным прокси (nginx в Docker Compose) адрес клиента берется из X-Forwarded-For
-  app.set('trust proxy', 'loopback, uniquelocal')
+  // За обратным прокси (nginx в Docker Compose, сеть Vercel) адрес клиента берется из X-Forwarded-For
+  app.set('trust proxy', config.trustProxy)
   app.use(express.json({ limit: '100kb' }))
 
   const auth = authenticate(pool)

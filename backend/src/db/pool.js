@@ -5,8 +5,8 @@ pg.types.setTypeParser(pg.types.builtins.NUMERIC, Number)
 // bigint-идентификаторы далеки от 2^53, поэтому безопасно читать их как числа
 pg.types.setTypeParser(pg.types.builtins.INT8, Number)
 
-export function createPool(connectionString) {
-  return new pg.Pool({ connectionString, max: 10 })
+export function createPool(connectionString, { max = 10 } = {}) {
+  return new pg.Pool({ connectionString, max })
 }
 
 export async function withTransaction(pool, fn) {

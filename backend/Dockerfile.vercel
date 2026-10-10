@@ -1,0 +1,22 @@
+# Образ серверной части для Vercel (Container Runtime).
+# Локально и в Docker Compose используется обычный Dockerfile.
+FROM node:24-alpine AS dependencies
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM node:24-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+# Vercel направляет трафик на порт 80 контейнера
+ENV PORT=80
+# Перед контейнером стоит сеть Vercel: она сама записывает адрес клиента в X-Forwarded-For
+ENV TRUST_PROXY=true
+# Экземпляров функции может быть несколько, у каждого свой пул — держим его небольшим
+ENV DB_POOL_MAX=3
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package.json ./
+COPY migrations ./migrations
+COPY src ./src
+USER node
+CMD ["node", "src/server.js"]

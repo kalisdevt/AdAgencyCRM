@@ -1,0 +1,11 @@
+# В сборку на Vercel уходят только исходники сервисов
+docs
+scripts
+backups
+.github
+backend/test
+backend/storage
+**/node_modules
+**/dist
+*.md
+docker-compose.yml

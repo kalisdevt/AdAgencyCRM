@@ -5,9 +5,16 @@ import { createApp } from './app.js'
 import { createChannels } from './modules/channels/index.js'
 import { createTelegramUpdateHandler } from './modules/channels/intake.routes.js'
 
-const pool = createPool(config.databaseUrl)
+const pool = createPool(config.databaseUrl, { max: config.dbPoolMax })
 
-const applied = await migrate(pool)
+// Отдельное кратковременное соединение для миграций (см. migrationDatabaseUrl в config.js)
+const migrationPool = createPool(config.migrationDatabaseUrl, { max: 1 })
+let applied
+try {
+  applied = await migrate(migrationPool)
+} finally {
+  await migrationPool.end()
+}
 if (applied.length) console.log(`Применены миграции: ${applied.join(', ')}`)
 
 if (process.env.SEED_DEMO === 'true') {
