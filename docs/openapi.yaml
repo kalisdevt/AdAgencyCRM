@@ -1,0 +1,673 @@
+openapi: 3.0.3
+info:
+  title: CRM-Агентство — REST API
+  version: 0.1.0
+  description: >
+    Реализованные маршруты этапа «Базовая реализация». Все маршруты, кроме входа,
+    веб-формы и вебхука Telegram, требуют заголовок `Authorization: Bearer <token>`.
+servers:
+  - url: http://localhost:8080/api
+    description: Docker Compose
+  - url: http://localhost:3000/api
+    description: Локальная разработка
+tags:
+  - name: Служебные
+  - name: Аутентификация
+  - name: Пользователи
+  - name: Каналы
+  - name: Входящие
+  - name: Сделки
+  - name: Клиенты
+
+paths:
+  /health:
+    get:
+      tags: [Служебные]
+      summary: Проверка работоспособности сервера и БД
+      security: []
+      responses:
+        '200':
+          description: Сервер и база данных доступны
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  database: { type: string, example: ok }
+                  time: { type: string, format: date-time }
+
+  /auth/login:
+    post:
+      tags: [Аутентификация]
+      summary: Вход по логину (или рабочей почте) и паролю
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, password]
+              properties:
+                login: { type: string, example: manager }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Токен доступа и профиль
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/me:
+    get:
+      tags: [Аутентификация]
+      summary: Профиль текущего пользователя
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users:
+    get:
+      tags: [Пользователи]
+      summary: Список учетных записей (администратор)
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/User' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Пользователи]
+      summary: Создать учетную запись (администратор)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, fullName, password, role]
+              properties:
+                login: { type: string, pattern: '^[a-zA-Z0-9._-]{3,40}$' }
+                email: { type: string, format: email, nullable: true }
+                fullName: { type: string, minLength: 2, maxLength: 120 }
+                password: { type: string, minLength: 8, maxLength: 72 }
+                role: { $ref: '#/components/schemas/Role' }
+                clientId: { type: integer, nullable: true, description: Обязателен для роли client }
+      responses:
+        '201':
+          description: Учетная запись создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Логин или почта уже заняты
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /users/{id}:
+    patch:
+      tags: [Пользователи]
+      summary: Изменить роль, данные, пароль или заблокировать учетную запись (администратор)
+      description: Администратор не может заблокировать себя или изменить собственную роль.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName: { type: string }
+                email: { type: string, format: email, nullable: true }
+                password: { type: string, minLength: 8 }
+                role: { $ref: '#/components/schemas/Role' }
+                clientId: { type: integer, nullable: true }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Обновленная учетная запись
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users/roles:
+    get:
+      tags: [Пользователи]
+      summary: Справочник ролей (администратор)
+      responses:
+        '200':
+          description: Роли
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { $ref: '#/components/schemas/Role' }
+                        name: { type: string }
+
+  /users/assignable:
+    get:
+      tags: [Пользователи]
+      summary: Сотрудники, которых можно назначить ответственными
+      description: Доступно ролям admin, manager, sales_head.
+      responses:
+        '200':
+          description: Действующие менеджеры и руководители продаж
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/UserRef' }
+
+  /public/leads:
+    post:
+      tags: [Каналы]
+      summary: Заявка с веб-формы сайта (FR-LEAD-01)
+      description: >
+        Открытый маршрут. Находит клиента по телефону или e-mail либо создает нового,
+        создает лид и сохраняет сообщение. Повтор с тем же `requestId` дубликат не создает.
+        Ограничение — 20 заявок в минуту с одного адреса.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              description: Обязателен хотя бы один контакт — phone или email.
+              properties:
+                name: { type: string, minLength: 2, maxLength: 120 }
+                phone: { type: string, example: '+7 900 000-00-00' }
+                email: { type: string, format: email }
+                message: { type: string, maxLength: 2000 }
+                utm_source: { type: string }
+                utm_medium: { type: string }
+                utm_campaign: { type: string }
+                requestId: { type: string, pattern: '^[A-Za-z0-9-]{8,64}$', description: Ключ идемпотентности }
+      responses:
+        '201':
+          description: Заявка принята
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeadAccepted' }
+        '200':
+          description: Повторная отправка — заявка уже была принята
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeadAccepted' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '429':
+          description: Слишком много заявок
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /channels/telegram/webhook:
+    post:
+      tags: [Каналы]
+      summary: Вебхук Telegram Bot API (FR-LEAD-01)
+      description: >
+        Принимает объект Update. Обращением считается сообщение из личного чата;
+        `/start`, сообщения ботов и групповые чаты игнорируются. Повторная доставка
+        сообщения с тем же ID не создает дубликат.
+      security: []
+      parameters:
+        - in: header
+          name: X-Telegram-Bot-Api-Secret-Token
+          required: true
+          schema: { type: string }
+          description: Значение TELEGRAM_WEBHOOK_SECRET
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Telegram Update }
+      responses:
+        '200':
+          description: Обновление обработано
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  duplicate: { type: boolean }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /inbox:
+    get:
+      tags: [Входящие]
+      summary: Лента «Входящие» (FR-LEAD-03)
+      description: Доступно ролям admin, manager, sales_head. До 200 обращений, новые сверху.
+      parameters:
+        - in: query
+          name: channel
+          schema: { type: string, enum: [telegram, web, vk] }
+        - in: query
+          name: stage
+          schema: { $ref: '#/components/schemas/Stage' }
+        - in: query
+          name: assignee
+          schema: { type: string }
+          description: '`me` — мои, `none` — без ответственного, либо ID сотрудника'
+        - in: query
+          name: unread
+          schema: { type: string, enum: ['1', 'true'] }
+          description: Только с непрочитанными сообщениями
+      responses:
+        '200':
+          description: Обращения
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Deal' }
+                  unreadTotal: { type: integer, description: Число обращений с непрочитанными сообщениями }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /deals/stages:
+    get:
+      tags: [Сделки]
+      summary: Стадии воронки продаж (FR-DEAL-01)
+      responses:
+        '200':
+          description: Стадии в порядке прохождения
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { $ref: '#/components/schemas/Stage' }
+                        name: { type: string }
+
+  /deals/refusal-reasons:
+    get:
+      tags: [Сделки]
+      summary: Справочник причин отказа
+      responses:
+        '200':
+          description: Активные причины
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        name: { type: string }
+
+  /deals/{id}:
+    get:
+      tags: [Сделки]
+      summary: Сделка с перепиской
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Сделка, сообщения и контакты клиента
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deal: { $ref: '#/components/schemas/Deal' }
+                  messages:
+                    type: array
+                    items: { $ref: '#/components/schemas/Message' }
+                  contacts:
+                    type: array
+                    items: { $ref: '#/components/schemas/Contact' }
+                  replyUnavailableReason:
+                    type: string
+                    nullable: true
+                    description: Почему нельзя ответить из системы; null — ответ доступен
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Сделки]
+      summary: Сменить стадию, ответственного или сумму (FR-DEAL-01, 03; FR-LEAD-07)
+      description: Для стадии `refused` обязательна причина отказа из справочника.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stage: { $ref: '#/components/schemas/Stage' }
+                refusalReasonId: { type: integer }
+                refusalComment: { type: string, nullable: true, maxLength: 1000 }
+                assigneeId: { type: integer, nullable: true, description: null снимает ответственного }
+                amount: { type: number, minimum: 0 }
+      responses:
+        '200':
+          description: Обновленная сделка
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deal: { $ref: '#/components/schemas/Deal' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /deals/{id}/read:
+    post:
+      tags: [Сделки]
+      summary: Отметить входящие сообщения сделки прочитанными
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Отмечено }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /deals/{id}/messages:
+    post:
+      tags: [Сделки]
+      summary: Ответить клиенту в канал обращения (FR-LEAD-06)
+      description: >
+        Сообщение сначала отправляется во внешний канал и сохраняется только после
+        успешной отправки.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        '201':
+          description: Сообщение отправлено и сохранено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { $ref: '#/components/schemas/Message' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '422':
+          description: Канал не поддерживает ответ или у клиента нет контакта в канале
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          description: Внешний канал отклонил сообщение
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Канал не подключен на сервере
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /clients/{id}:
+    get:
+      tags: [Клиенты]
+      summary: Карточка клиента (FR-LEAD-05)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Контакты, сделки, проекты и история сообщений
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientCard' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Клиенты]
+      summary: Изменить данные клиента
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 2, maxLength: 120 }
+                phone: { type: string, nullable: true }
+                email: { type: string, format: email, nullable: true }
+                company: { type: string, nullable: true }
+                note: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Обновленная карточка
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientCard' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: { type: integer }
+  responses:
+    ValidationError:
+      description: Некорректные входные данные
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Нет токена, токен недействителен или учетная запись заблокирована
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Запись не найдена
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: validation_error }
+            message: { type: string, example: Укажите телефон или почту для связи }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  message: { type: string }
+    Role:
+      type: string
+      enum: [admin, manager, designer, marketer, sales_head, director, client]
+    Stage:
+      type: string
+      enum: [new, qualification, proposal_prep, proposal_sent, invoiced, paid, refused]
+    UserRef:
+      type: object
+      properties:
+        id: { type: integer }
+        fullName: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        login: { type: string }
+        email: { type: string, nullable: true }
+        fullName: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        roleName: { type: string }
+        clientId: { type: integer, nullable: true }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    LeadAccepted:
+      type: object
+      properties:
+        accepted: { type: boolean }
+        duplicate: { type: boolean }
+        message: { type: string }
+    Contact:
+      type: object
+      properties:
+        channel: { type: string, enum: [telegram, web, vk] }
+        externalId: { type: string }
+        username: { type: string, nullable: true }
+        displayName: { type: string, nullable: true }
+    Message:
+      type: object
+      properties:
+        id: { type: integer }
+        dealId: { type: integer }
+        channel: { type: string }
+        direction: { type: string, enum: [in, out] }
+        text: { type: string }
+        author:
+          allOf: [{ $ref: '#/components/schemas/UserRef' }]
+          nullable: true
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    Deal:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        stage: { $ref: '#/components/schemas/Stage' }
+        amount: { type: number }
+        channel: { type: string, enum: [telegram, web, vk, manual] }
+        utm:
+          type: object
+          properties:
+            source: { type: string, nullable: true }
+            medium: { type: string, nullable: true }
+            campaign: { type: string, nullable: true }
+        campaign: { type: string, nullable: true }
+        refusalReasonId: { type: integer, nullable: true }
+        refusalReason: { type: string, nullable: true }
+        refusalComment: { type: string, nullable: true }
+        firstResponseAt: { type: string, format: date-time, nullable: true }
+        closedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        client:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            phone: { type: string, nullable: true }
+            email: { type: string, nullable: true }
+            isReturning: { type: boolean, description: У клиента есть другие сделки }
+        assignee:
+          allOf: [{ $ref: '#/components/schemas/UserRef' }]
+          nullable: true
+        lastMessage:
+          type: object
+          nullable: true
+          properties:
+            text: { type: string }
+            direction: { type: string, enum: [in, out] }
+            createdAt: { type: string, format: date-time }
+        unread: { type: integer }
+    ClientCard:
+      type: object
+      properties:
+        client:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            phone: { type: string, nullable: true }
+            email: { type: string, nullable: true }
+            company: { type: string, nullable: true }
+            note: { type: string, nullable: true }
+            createdAt: { type: string, format: date-time }
+        contacts:
+          type: array
+          items: { $ref: '#/components/schemas/Contact' }
+        deals:
+          type: array
+          items: { $ref: '#/components/schemas/Deal' }
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/Message' }
+        projects:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              title: { type: string }
+              status: { type: string, enum: [active, completed] }
+              createdAt: { type: string, format: date-time }
