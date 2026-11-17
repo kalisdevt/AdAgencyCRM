@@ -104,6 +104,10 @@ export function createTelegramAdapter({ token, fetchImpl = fetch } = {}) {
           } catch (error) {
             if (controller.signal.aborted) return
             console.error(`[telegram] ошибка опроса: ${error.message}`)
+            // У бота зарегистрирован вебхук (например, для Vercel) — опрос с ним несовместим
+            if (/conflict/i.test(error.message) && /webhook/i.test(error.message)) {
+              console.error('[telegram] у бота задан вебхук; снимите его командой «npm run telegram -- delete» или используйте другого бота')
+            }
             await new Promise((resolve) => setTimeout(resolve, 5000))
           }
         }
