@@ -31,6 +31,18 @@ export const config = {
   fileStorage: env.FILE_STORAGE === 'db' ? 'db' : 'disk',
   storageDir: env.STORAGE_DIR || 'storage',
   maxUploadMb: Number(env.MAX_UPLOAD_MB) || 10,
+  // Реквизиты агентства для счета (FR-DOC-01). По умолчанию — заведомо тестовые значения (ТЗ п. 4.7)
+  agency: {
+    name: env.AGENCY_NAME || 'ООО «Рекламное агентство» (тест)',
+    inn: env.AGENCY_INN || '0000000000',
+    kpp: env.AGENCY_KPP || '000000000',
+    address: env.AGENCY_ADDRESS || 'г. Тестовск, ул. Примерная, д. 1, офис 1',
+    bank: env.AGENCY_BANK || 'АО «Тестовый банк»',
+    bik: env.AGENCY_BIK || '000000000',
+    account: env.AGENCY_ACCOUNT || '40702810000000000000',
+    correspondentAccount: env.AGENCY_CORR_ACCOUNT || '30101810000000000000',
+    director: env.AGENCY_DIRECTOR || 'Директоров В. В.',
+  },
   telegram: {
     token: env.TELEGRAM_BOT_TOKEN || '',
     polling: env.TELEGRAM_POLLING === 'true',

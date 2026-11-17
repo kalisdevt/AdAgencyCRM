@@ -72,6 +72,23 @@ export function createTelegramAdapter({ token, fetchImpl = fetch } = {}) {
       }
     },
 
+    // Отправка файла (счет в PDF, FR-DOC-03): multipart/form-data, а не JSON
+    async sendDocument(contact, { content, fileName, mimeType, caption }) {
+      if (!token) throw new HttpError(503, 'channel_unavailable', 'Telegram-бот не подключен: задайте TELEGRAM_BOT_TOKEN')
+      const form = new FormData()
+      form.append('chat_id', String(contact.externalId))
+      if (caption) form.append('caption', caption)
+      form.append('document', new Blob([content], { type: mimeType }), fileName)
+      try {
+        const response = await fetchImpl(`${API_BASE}/bot${token}/sendDocument`, { method: 'POST', body: form })
+        const data = await response.json().catch(() => null)
+        if (!data?.ok) throw new Error(data?.description || `Telegram API: HTTP ${response.status}`)
+        return { externalMessageId: `${data.result.chat.id}:${data.result.message_id}` }
+      } catch (error) {
+        throw new HttpError(502, 'channel_error', `Не удалось отправить файл в Telegram: ${error.message}`)
+      }
+    },
+
     // Длинный опрос — для локального запуска без публичного адреса под вебхук
     startPolling(onUpdate) {
       const controller = new AbortController()
