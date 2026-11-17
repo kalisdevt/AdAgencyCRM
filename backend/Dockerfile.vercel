@@ -14,6 +14,8 @@ ENV PORT=80
 ENV TRUST_PROXY=true
 # Экземпляров функции может быть несколько, у каждого свой пул — держим его небольшим
 ENV DB_POOL_MAX=3
+# Диск контейнера не сохраняется между запусками: содержимое файлов хранится в БД
+ENV FILE_STORAGE=db
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json ./
 COPY migrations ./migrations
