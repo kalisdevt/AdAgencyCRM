@@ -1,9 +1,8 @@
 import { withTransaction } from '../../db/pool.js'
 import { badRequest, HttpError, notFound } from '../../errors.js'
+import { ASSIGNABLE_ROLES } from '../../roles.js'
 import { CLOSED_STAGES } from './stages.js'
 import { findDeal, listContacts, toMessage } from './deals.repository.js'
-
-const ASSIGNABLE_ROLES = ['manager', 'sales_head']
 
 async function requireDeal(db, id) {
   const deal = await findDeal(db, id)

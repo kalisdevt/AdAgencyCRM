@@ -1,8 +1,12 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { createPool } from '../src/db/pool.js'
 import { migrate } from '../src/db/migrate.js'
 import { createApp } from '../src/app.js'
 import { config } from '../src/config.js'
 import { seedUsers } from '../src/db/seed.js'
+import { createStorage } from '../src/storage.js'
 
 export const TEST_PASSWORD = 'test-password-1'
 
@@ -33,7 +37,11 @@ export async function startTestApp(options = {}) {
   await migrate(pool)
   await seedUsers(pool, TEST_PASSWORD)
 
-  const app = createApp({ pool, ...options })
+  // Файлы тестов пишутся во временный каталог (или в БД, если тест передал storageKind: 'db')
+  const storageDir = await mkdtemp(path.join(tmpdir(), 'crm-test-'))
+  const { storageKind = 'disk', ...appOptions } = options
+  const storage = createStorage({ kind: storageKind, dir: storageDir, pool })
+  const app = createApp({ pool, storage, ...appOptions })
   const server = await new Promise((resolve) => {
     const instance = app.listen(0, () => resolve(instance))
   })
@@ -53,6 +61,21 @@ export async function startTestApp(options = {}) {
     return { status: response.status, body: text ? JSON.parse(text) : null }
   }
 
+  // Загрузка файла: тело — содержимое как есть, имя — в заголовке X-File-Name
+  async function upload(path, { token, name, content, type = 'application/octet-stream' }) {
+    const response = await fetch(baseUrl + path, {
+      method: 'POST',
+      headers: { 'Content-Type': type, 'X-File-Name': encodeURIComponent(name), Authorization: `Bearer ${token}` },
+      body: content,
+    })
+    return { status: response.status, body: await response.json() }
+  }
+
+  async function download(path, token) {
+    const response = await fetch(baseUrl + path, { headers: { Authorization: `Bearer ${token}` } })
+    return { status: response.status, headers: response.headers, content: Buffer.from(await response.arrayBuffer()) }
+  }
+
   async function loginAs(login) {
     const { body } = await request('POST', '/auth/login', { body: { login, password: TEST_PASSWORD } })
     return body.token
@@ -61,7 +84,13 @@ export async function startTestApp(options = {}) {
   async function stop() {
     await new Promise((resolve) => server.close(resolve))
     await pool.end()
+    await rm(storageDir, { recursive: true, force: true })
   }
 
-  return { pool, request, loginAs, stop }
+  async function userId(login) {
+    const { rows } = await pool.query('SELECT id FROM users WHERE login = $1', [login])
+    return rows[0].id
+  }
+
+  return { pool, storage, request, upload, download, loginAs, userId, stop }
 }
