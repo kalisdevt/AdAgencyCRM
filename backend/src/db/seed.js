@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { config } from '../config.js'
 import { hashPassword } from '../modules/auth/auth.service.js'
 import { handleIncoming } from '../modules/leads/intake.service.js'
+import { createStorage } from '../storage.js'
+import { seedScenario } from './demo-scenario.js'
 import { createPool } from './pool.js'
 import { migrate } from './migrate.js'
 
@@ -88,13 +90,22 @@ export async function seedInquiries(pool) {
   return created
 }
 
+// Полный демонстрационный набор: пользователи, обращения и сценарий работы с ними
+export async function seedDemo(pool, storage = createStorage({ kind: config.fileStorage, dir: config.storageDir, pool })) {
+  const users = await seedUsers(pool)
+  const inquiries = await seedInquiries(pool)
+  const scenario = await seedScenario(pool, storage, { clientPassword: DEMO_PASSWORD })
+  return { users, inquiries, scenario }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const pool = createPool(config.databaseUrl)
   try {
     await migrate(pool)
-    const users = await seedUsers(pool)
-    console.log(`Демо-пользователи: добавлено ${users} (логины: ${DEMO_USERS.map((u) => u.login).join(', ')})`)
-    console.log(`Демо-обращения: добавлено ${await seedInquiries(pool)}`)
+    const { users, inquiries, scenario } = await seedDemo(pool)
+    console.log(`Демо-пользователи: добавлено ${users} (логины: ${DEMO_USERS.map((u) => u.login).join(', ')}, client)`)
+    console.log(`Демо-обращения: добавлено ${inquiries}`)
+    console.log(scenario ? 'Демо-сценарий: сделки, задачи, счета, проекты и расходы созданы' : 'Демо-сценарий уже применен ранее')
   } finally {
     await pool.end()
   }
