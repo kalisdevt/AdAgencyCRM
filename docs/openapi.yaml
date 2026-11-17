@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: CRM-Агентство — REST API
-  version: 0.1.0
+  version: 0.2.0
   description: >
-    Реализованные маршруты этапа «Базовая реализация». Все маршруты, кроме входа,
+    Маршруты этапа «Основная функциональность»: лиды и сделки, задачи и файлы, уведомления,
+    счета и проекты, личный кабинет клиента, отчеты и справочники. Все маршруты, кроме входа,
     веб-формы и вебхука Telegram, требуют заголовок `Authorization: Bearer <token>`.
 servers:
   - url: http://localhost:8080/api
@@ -18,6 +19,13 @@ tags:
   - name: Входящие
   - name: Сделки
   - name: Клиенты
+  - name: Задачи
+  - name: Уведомления
+  - name: Счета
+  - name: Проекты
+  - name: Личный кабинет
+  - name: Отчеты
+  - name: Справочники
 
 paths:
   /health:
@@ -378,7 +386,10 @@ paths:
     patch:
       tags: [Сделки]
       summary: Сменить стадию, ответственного или сумму (FR-DEAL-01, 03; FR-LEAD-07)
-      description: Для стадии `refused` обязательна причина отказа из справочника.
+      description: >
+        Для стадии `refused` обязательна причина отказа из справочника. Стадии `invoiced` и `paid`
+        ставятся через счета: `paid` вручную недоступна, `invoiced` — только при неоплаченном счете;
+        стадию оплаченной сделки изменить нельзя.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -393,6 +404,8 @@ paths:
                 refusalComment: { type: string, nullable: true, maxLength: 1000 }
                 assigneeId: { type: integer, nullable: true, description: null снимает ответственного }
                 amount: { type: number, minimum: 0 }
+                campaignId: { type: integer, nullable: true, description: Рекламная кампания (FR-DEAL-02) }
+                title: { type: string, minLength: 2, maxLength: 200 }
       responses:
         '200':
           description: Обновленная сделка
@@ -488,6 +501,8 @@ paths:
                 phone: { type: string, nullable: true }
                 email: { type: string, format: email, nullable: true }
                 company: { type: string, nullable: true }
+                inn: { type: string, nullable: true, description: 10 или 12 цифр }
+                address: { type: string, nullable: true }
                 note: { type: string, nullable: true }
       responses:
         '200':
@@ -497,6 +512,618 @@ paths:
               schema: { $ref: '#/components/schemas/ClientCard' }
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /clients/{id}/account:
+    post:
+      tags: [Клиенты]
+      summary: Создать учетную запись клиента для личного кабинета (FR-PORT-01)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, password]
+              properties:
+                login: { type: string, pattern: '^[a-zA-Z0-9._-]{3,40}$' }
+                password: { type: string, minLength: 8, maxLength: 72 }
+      responses:
+        '201':
+          description: Карточка клиента с учетной записью в `portalAccounts`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientCard' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { description: Логин занят }
+  /clients/{id}/account/{userId}:
+    patch:
+      tags: [Клиенты]
+      summary: Заблокировать, разблокировать учетную запись клиента или сменить пароль
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - { in: path, name: userId, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isActive: { type: boolean }
+                password: { type: string, minLength: 8, maxLength: 72 }
+      responses:
+        '200':
+          description: Обновленная карточка клиента
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientCard' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users/staff:
+    get:
+      tags: [Пользователи]
+      summary: Действующие сотрудники — исполнители задач (FR-TASK-01)
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/UserRef' } }
+
+  /tasks:
+    get:
+      tags: [Задачи]
+      summary: Список задач
+      description: Дизайнер и маркетолог видят только задачи, где они исполнитель или постановщик; руководящие роли с `scope=all` — все.
+      parameters:
+        - { in: query, name: scope, schema: { type: string, enum: [mine, all] } }
+        - { in: query, name: status, schema: { $ref: '#/components/schemas/TaskStatus' } }
+        - { in: query, name: dealId, schema: { type: integer } }
+        - { in: query, name: open, schema: { type: string, enum: ['1'] }, description: Только незавершенные }
+      responses:
+        '200':
+          description: Задачи с файлами
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Task' } }
+    post:
+      tags: [Задачи]
+      summary: Создать задачу из сделки (FR-TASK-01); исполнитель получает уведомление (FR-TASK-02)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId, title, assigneeId]
+              properties:
+                dealId: { type: integer }
+                title: { type: string, minLength: 2, maxLength: 200 }
+                description: { type: string, nullable: true, maxLength: 5000 }
+                assigneeId: { type: integer }
+                dueDate: { type: string, format: date, nullable: true }
+      responses:
+        '201':
+          description: Созданная задача
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /tasks/{id}:
+    get:
+      tags: [Задачи]
+      summary: Карточка задачи с комментариями
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Задача
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task: { $ref: '#/components/schemas/Task' }
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        text: { type: string }
+                        author: { $ref: '#/components/schemas/UserRef' }
+                        createdAt: { type: string, format: date-time }
+                  canEdit: { type: boolean, description: Может менять содержание задачи }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Задачи]
+      summary: Изменить статус (исполнитель) или содержание задачи (постановщик, отдел продаж) — FR-TASK-03
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { $ref: '#/components/schemas/TaskStatus' }
+                title: { type: string }
+                description: { type: string, nullable: true }
+                assigneeId: { type: integer }
+                dueDate: { type: string, format: date, nullable: true }
+      responses:
+        '200': { description: Обновленная задача }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /tasks/{id}/comments:
+    post:
+      tags: [Задачи]
+      summary: Комментарий к задаче; второй участник получает уведомление
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        '201': { description: Созданный комментарий }
+  /tasks/{id}/files:
+    post:
+      tags: [Задачи]
+      summary: Загрузить макет или вложение (FR-TASK-03)
+      description: >
+        Тело запроса — содержимое файла как есть, имя файла — в заголовке `X-File-Name`
+        (encodeURIComponent). Тип определяется сервером по расширению из белого списка; предел — `MAX_UPLOAD_MB`.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - { in: header, name: X-File-Name, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '201':
+          description: Метаданные файла
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file: { $ref: '#/components/schemas/File' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '413': { description: Файл слишком большой }
+  /files/{id}:
+    get:
+      tags: [Задачи]
+      summary: Получить файл (участникам задачи и руководящим ролям)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - { in: query, name: download, schema: { type: string, enum: ['1'] } }
+      responses:
+        '200':
+          description: Содержимое файла
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /notifications:
+    get:
+      tags: [Уведомления]
+      summary: Уведомления текущего пользователя (FR-TASK-02)
+      responses:
+        '200':
+          description: Последние 100 и число непрочитанных
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+                  unread: { type: integer }
+  /notifications/unread-count:
+    get:
+      tags: [Уведомления]
+      summary: Число непрочитанных уведомлений
+      responses:
+        '200': { description: 'Объект вида { "unread": 2 }' }
+  /notifications/{id}/read:
+    post:
+      tags: [Уведомления]
+      summary: Отметить уведомление прочитанным
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Отмечено }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /notifications/read-all:
+    post:
+      tags: [Уведомления]
+      summary: Отметить все уведомления прочитанными
+      responses:
+        '204': { description: Отмечено }
+
+  /invoices:
+    get:
+      tags: [Счета]
+      summary: Счета сделки
+      parameters:
+        - { in: query, name: dealId, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Список
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Invoice' } }
+    post:
+      tags: [Счета]
+      summary: Сформировать счет в PDF на сумму сделки (FR-DOC-01)
+      description: Сделка переходит в «Счет выставлен». Нельзя для сделки без суммы, в «Отказе» или оплаченной.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId]
+              properties:
+                dealId: { type: integer }
+                description: { type: string, nullable: true, maxLength: 500, description: Наименование услуги в счете }
+      responses:
+        '201':
+          description: Счет
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice: { $ref: '#/components/schemas/Invoice' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /invoices/{id}:
+    patch:
+      tags: [Счета]
+      summary: Отметить оплату (FR-DOC-02) — сделка переходит в «Оплачено», создается проект (FR-PROJ-01)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, paid] }
+      responses:
+        '200':
+          description: Счет и признак создания проекта
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice: { $ref: '#/components/schemas/Invoice' }
+                  projectCreated: { type: boolean }
+        '409': { description: Оплаченный счет нельзя вернуть в «Ожидает оплаты» }
+  /invoices/{id}/pdf:
+    get:
+      tags: [Счета]
+      summary: PDF счета
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - { in: query, name: download, schema: { type: string, enum: ['1'] } }
+      responses:
+        '200':
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+  /invoices/{id}/send:
+    post:
+      tags: [Счета]
+      summary: Отправить PDF счета клиенту в Telegram (FR-DOC-03)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { description: Счет с заполненным `sentAt` }
+        '422': { description: Бот не подключен или клиент не писал боту }
+
+  /projects:
+    get:
+      tags: [Проекты]
+      summary: Панель статусов проектов (FR-PROJ-02)
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [active, completed] } }
+        - { in: query, name: manager, schema: { type: string, enum: [me] } }
+      responses:
+        '200':
+          description: Проекты и сводка по этапам (по всем проектам)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Project' } }
+                  summary:
+                    type: object
+                    additionalProperties: { type: integer }
+                    example: { design: 1, approval: 0, printing: 2, placement: 0, completed: 3 }
+  /projects/{id}:
+    get:
+      tags: [Проекты]
+      summary: Проект с этапами и счетами
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Проект
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project: { $ref: '#/components/schemas/Project' }
+                  invoices: { type: array, items: { $ref: '#/components/schemas/Invoice' } }
+                  canMarkStages: { type: boolean }
+  /projects/{id}/stages/{code}:
+    post:
+      tags: [Проекты]
+      summary: Отметить выполнение этапа (FR-PROJ-01) и уведомить клиента (FR-PROJ-03)
+      description: Этапы отмечаются по порядку; отменить можно только последний выполненный. Отмечает ответственный менеджер, руководитель отдела продаж или администратор.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - { in: path, name: code, required: true, schema: { type: string, enum: [design, approval, printing, placement, completed] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [done]
+              properties:
+                done: { type: boolean }
+                notifyClient: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Проект и результат уведомления клиента
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project: { $ref: '#/components/schemas/Project' }
+                  clientNotification:
+                    type: object
+                    nullable: true
+                    properties:
+                      sent: { type: boolean }
+                      reason: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /portal:
+    get:
+      tags: [Личный кабинет]
+      summary: Заказы клиента (FR-PORT-01, 02) — только для роли «Клиент»
+      responses:
+        '200':
+          description: Текущие заказы, проекты в работе, архив, счета
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      company: { type: string, nullable: true }
+                  orders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        title: { type: string }
+                        status: { type: string, example: Готовим предложение }
+                        amount: { type: number }
+                        createdAt: { type: string, format: date-time }
+                  activeProjects: { type: array, items: { $ref: '#/components/schemas/Project' } }
+                  archive: { type: array, items: { $ref: '#/components/schemas/Project' } }
+                  invoices: { type: array, items: { $ref: '#/components/schemas/Invoice' } }
+  /portal/projects/{id}:
+    get:
+      tags: [Личный кабинет]
+      summary: Проект клиента (чужой — 404)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { description: Проект }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /portal/invoices/{id}/pdf:
+    get:
+      tags: [Личный кабинет]
+      summary: PDF счета клиента (чужой — 404)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+
+  /reports:
+    get:
+      tags: [Отчеты]
+      summary: Отчеты, доступные текущей роли, и период по умолчанию
+      responses:
+        '200': { description: 'Объект вида { "reports": ["channels", "refusals"], "canEditExpenses": true, "period": { "from": "2026-11-01", "to": "2026-11-17" } }' }
+  /reports/{type}:
+    get:
+      tags: [Отчеты]
+      summary: Отчет за период (FR-AN-01, 03, 04, 05)
+      description: >
+        `channels` — каналы и кампании с расходами и стоимостью привлечения (FR-AN-01, 02);
+        `refusals` — причины отказа (FR-AN-03); `managers` — KPI менеджеров (FR-AN-04);
+        `revenue` — ожидаемая выручка по стадиям, без учета периода (FR-AN-05).
+        Маркетологу доступны `channels` и `refusals`; руководителю отдела продаж, директору и администратору — все.
+      parameters:
+        - { in: path, name: type, required: true, schema: { type: string, enum: [channels, refusals, managers, revenue] } }
+        - { in: query, name: from, schema: { type: string, format: date }, description: По умолчанию — начало текущего месяца }
+        - { in: query, name: to, schema: { type: string, format: date }, description: По умолчанию — сегодня }
+      responses:
+        '200': { description: Данные отчета }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /reports/{type}/csv:
+    get:
+      tags: [Отчеты]
+      summary: Выгрузка отчета в CSV для Excel (FR-AN-07)
+      parameters:
+        - { in: path, name: type, required: true, schema: { type: string, enum: [channels, refusals, managers, revenue] } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: CSV (UTF-8 с BOM, разделитель «;»)
+          content:
+            text/csv:
+              schema: { type: string }
+  /reports/expenses:
+    get:
+      tags: [Отчеты]
+      summary: Расходы на кампании за период (FR-AN-02)
+      parameters:
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+      responses:
+        '200': { description: Список расходов }
+    post:
+      tags: [Отчеты]
+      summary: Добавить расход (маркетолог, администратор)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaignId, spentOn, amount]
+              properties:
+                campaignId: { type: integer }
+                spentOn: { type: string, format: date }
+                amount: { type: number, minimum: 0, exclusiveMinimum: true }
+                comment: { type: string, nullable: true, maxLength: 500 }
+      responses:
+        '201': { description: Создан }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /reports/expenses/{id}:
+    delete:
+      tags: [Отчеты]
+      summary: Удалить расход
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Удален }
+
+  /dictionaries/refusal-reasons:
+    get:
+      tags: [Справочники]
+      summary: Причины отказа, включая скрытые (администратор, FR-ADM-02)
+      responses:
+        '200': { description: Список }
+    post:
+      tags: [Справочники]
+      summary: Добавить причину отказа
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        '201': { description: Создана }
+        '409': { description: Такая причина уже есть }
+  /dictionaries/refusal-reasons/{id}:
+    patch:
+      tags: [Справочники]
+      summary: Переименовать или скрыть причину отказа
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                isActive: { type: boolean }
+      responses:
+        '200': { description: Обновлена }
+  /dictionaries/campaigns:
+    get:
+      tags: [Справочники]
+      summary: Рекламные кампании (для выбора в сделке и отчетов)
+      responses:
+        '200': { description: Список }
+    post:
+      tags: [Справочники]
+      summary: Добавить кампанию (администратор, маркетолог)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string, description: Значение utm_campaign }
+                name: { type: string }
+      responses:
+        '201': { description: Создана }
+        '409': { description: Кампания с таким кодом уже есть }
+  /dictionaries/campaigns/{id}:
+    patch:
+      tags: [Справочники]
+      summary: Переименовать или скрыть кампанию
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                isActive: { type: boolean }
+      responses:
+        '200': { description: Обновлена }
 
 security:
   - bearerAuth: []
@@ -640,6 +1267,9 @@ components:
             direction: { type: string, enum: [in, out] }
             createdAt: { type: string, format: date-time }
         unread: { type: integer }
+        campaignId: { type: integer, nullable: true }
+        projectId: { type: integer, nullable: true, description: Проект, созданный после оплаты }
+        pendingInvoices: { type: integer, description: Неоплаченные счета }
     ClientCard:
       type: object
       properties:
@@ -664,10 +1294,126 @@ components:
           items: { $ref: '#/components/schemas/Message' }
         projects:
           type: array
+          items: { $ref: '#/components/schemas/Project' }
+        portalAccounts:
+          type: array
           items:
             type: object
             properties:
               id: { type: integer }
-              title: { type: string }
-              status: { type: string, enum: [active, completed] }
-              createdAt: { type: string, format: date-time }
+              login: { type: string }
+              isActive: { type: boolean }
+    TaskStatus:
+      type: string
+      enum: [new, in_progress, review, done]
+      description: Новая, В работе, На согласовании, Готово
+    File:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        mimeType: { type: string }
+        size: { type: integer }
+        isPreviewable: { type: boolean, description: Изображение, которое можно показать миниатюрой }
+        uploadedBy:
+          allOf: [{ $ref: '#/components/schemas/UserRef' }]
+          nullable: true
+        taskId: { type: integer, nullable: true }
+        createdAt: { type: string, format: date-time }
+    Task:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/TaskStatus' }
+        dueDate: { type: string, format: date, nullable: true }
+        isOverdue: { type: boolean }
+        assignee: { $ref: '#/components/schemas/UserRef' }
+        author: { $ref: '#/components/schemas/UserRef' }
+        deal:
+          type: object
+          properties:
+            id: { type: integer }
+            title: { type: string }
+            stage: { $ref: '#/components/schemas/Stage' }
+        client:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        commentCount: { type: integer }
+        files: { type: array, items: { $ref: '#/components/schemas/File' } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Notification:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [task_assigned, task_comment, task_file, task_status, project_created] }
+        title: { type: string }
+        body: { type: string, nullable: true }
+        link: { type: string, nullable: true, example: /tasks/12 }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    Invoice:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string, example: СЧ-2026-0001 }
+        amount: { type: number }
+        status: { type: string, enum: [pending, paid] }
+        description: { type: string }
+        fileId: { type: integer }
+        issuedAt: { type: string, format: date-time }
+        paidAt: { type: string, format: date-time, nullable: true }
+        sentAt: { type: string, format: date-time, nullable: true }
+        deal:
+          type: object
+          properties:
+            id: { type: integer }
+            title: { type: string }
+        projectId: { type: integer, nullable: true }
+    Project:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        status: { type: string, enum: [active, completed] }
+        manager:
+          allOf: [{ $ref: '#/components/schemas/UserRef' }]
+          nullable: true
+        client:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            company: { type: string, nullable: true }
+        deal:
+          type: object
+          properties:
+            id: { type: integer }
+            amount: { type: number }
+            channel: { type: string }
+        stages:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string, enum: [design, approval, printing, placement, completed] }
+              name: { type: string }
+              isDone: { type: boolean }
+              doneAt: { type: string, format: date-time, nullable: true }
+        currentStage:
+          type: object
+          nullable: true
+          properties:
+            code: { type: string }
+            name: { type: string }
+        progress:
+          type: object
+          properties:
+            done: { type: integer }
+            total: { type: integer }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
