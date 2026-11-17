@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { auth, OVERSIGHT_ROLES, SALES_ROLES, STAFF_ROLES } from '../auth.js'
+import { auth, OVERSIGHT_ROLES, REPORT_ROLES, SALES_ROLES, STAFF_ROLES } from '../auth.js'
 import { notificationsState, refreshUnread } from '../notifications.js'
 
 const router = useRouter()
@@ -12,11 +12,12 @@ const navItems = computed(() =>
   [
     { to: { name: 'inbox' }, label: 'Входящие', roles: SALES_ROLES, icon: 'M4 5.5h16v13H4v-13Z M4.5 13h4l1.5 2h4l1.5-2h4' },
     { to: { name: 'projects' }, label: 'Проекты', roles: OVERSIGHT_ROLES, icon: 'M4.5 7.5h15v11h-15v-11Z M9 7.5V5.5h6v2 M4.5 12.5h15' },
+    { to: { name: 'reports' }, label: 'Отчеты', roles: REPORT_ROLES, icon: 'M5 19.5V10M10 19.5V5M15 19.5v-7M20 19.5v-11M3.5 19.5h17' },
     { to: { name: 'tasks' }, label: 'Задачи', roles: STAFF_ROLES, icon: 'M9 6.5h10M9 12h10M9 17.5h10M4.5 6.5l1 1 2-2M4.5 12l1 1 2-2M4.5 17.5l1 1 2-2' },
     { to: { name: 'notifications' }, label: 'Уведомления', roles: STAFF_ROLES, counter: true, icon: 'M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5h-14l1.5-1.5Z M10 20.5h4' },
+    { to: { name: 'dictionaries' }, label: 'Справочники', roles: ['admin', 'marketer'], icon: 'M6 4.5h10.5a1.5 1.5 0 0 1 1.5 1.5v13.5H7.5A1.5 1.5 0 0 1 6 18V4.5Z M6 18a1.5 1.5 0 0 1 1.5-1.5H18 M9.5 8.5h5' },
     { to: { name: 'users' }, label: 'Пользователи', roles: ['admin'], icon: 'M12 11.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z M5.5 19a6.5 6.5 0 0 1 13 0' },
     { to: { name: 'portal' }, label: 'Мои заказы', roles: ['client'], icon: 'M5 7.5h14l-1 11.5H6L5 7.5Z M9 7.5a3 3 0 0 1 6 0' },
-    { to: { name: 'home' }, label: 'Главная', roles: ['marketer'], icon: 'M4.5 11 12 4.5 19.5 11v8.5h-15V11Z' },
   ].filter((item) => item.roles.includes(user.value?.role)),
 )
 
