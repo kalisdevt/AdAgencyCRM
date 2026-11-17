@@ -46,10 +46,12 @@ export function projectPermissions(user, project) {
 // следующий этап, отменить — только последний выполненный.
 export async function setStage(pool, projectId, code, done, user) {
   const result = await withTransaction(pool, async (db) => {
+    // Сначала блокировка, потом чтение: иначе параллельные запросы (двойной клик) проверяли бы
+    // порядок этапов по устаревшему состоянию и могли отметить этап дважды или не по порядку
+    await db.query('SELECT 1 FROM projects WHERE id = $1 FOR UPDATE', [projectId])
     const project = await findProject(db, projectId)
     if (!project) throw notFound('Проект не найден')
     if (!canMarkStages(user, project)) throw forbidden('Этапы отмечает ответственный менеджер проекта')
-    await db.query('SELECT 1 FROM projects WHERE id = $1 FOR UPDATE', [projectId])
 
     const index = project.stages.findIndex((stage) => stage.code === code)
     if (index < 0) throw notFound('Этап не найден')
