@@ -77,6 +77,7 @@ export function homeRouteFor(user) {
   if (SALES_ROLES.includes(user.role)) return { name: 'inbox' }
   if (user.role === 'designer') return { name: 'tasks' }
   if (user.role === 'director') return { name: 'projects' }
+  if (user.role === 'client') return { name: 'portal' }
   return { name: 'home' }
 }
 

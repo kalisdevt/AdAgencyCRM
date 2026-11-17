@@ -47,3 +47,15 @@ a.row-link:hover b { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 720px) {
   .pair { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Личный кабинет клиента */
+.account { display: flex; flex-direction: column; gap: 10px; }
+.account-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+.account-form { display: flex; flex-wrap: wrap; gap: 8px; }
+.account-form .control { flex: 1 1 200px; width: auto; }
+.account-form .btn { height: 38px; }
+.account-create { display: flex; flex-direction: column; gap: 12px; }
+.account-create .muted { margin: 0; font-size: 13px; }
+@media (max-width: 720px) {
+  .account-form .btn { flex: 1; height: 44px; }
+}
