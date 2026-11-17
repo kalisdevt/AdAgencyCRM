@@ -14,6 +14,7 @@ import { filesRoutes } from './modules/files/files.routes.js'
 import { notificationsRoutes } from './modules/notifications/notifications.js'
 import { invoicesRoutes } from './modules/invoices/invoices.routes.js'
 import { projectsRoutes } from './modules/projects/projects.routes.js'
+import { portalRoutes } from './modules/portal/portal.routes.js'
 import { OVERSIGHT_ROLES, SALES_ROLES, STAFF_ROLES } from './roles.js'
 import { createStorage } from './storage.js'
 
@@ -45,6 +46,7 @@ export function createApp({
   api.use('/tasks', auth, requireRole(...STAFF_ROLES), tasksRoutes({ pool, storage }))
   api.use('/invoices', auth, requireRole(...SALES_ROLES), invoicesRoutes({ pool, storage, channels }))
   api.use('/projects', auth, requireRole(...OVERSIGHT_ROLES), projectsRoutes({ pool, channels }))
+  api.use('/portal', auth, requireRole('client'), portalRoutes({ pool, storage }))
   api.use('/files', auth, filesRoutes({ pool, storage }))
   api.use('/notifications', auth, notificationsRoutes({ pool }))
 

@@ -6,6 +6,7 @@ import HomeView from './views/HomeView.vue'
 import InboxView from './views/InboxView.vue'
 import LoginView from './views/LoginView.vue'
 import NotificationsView from './views/NotificationsView.vue'
+import PortalView from './views/PortalView.vue'
 import ProjectsView from './views/ProjectsView.vue'
 import ProjectView from './views/ProjectView.vue'
 import RequestFormView from './views/RequestFormView.vue'
@@ -30,7 +31,8 @@ const router = createRouter({
         { path: 'tasks/:id(\\d+)', name: 'task', component: TaskView, meta: { roles: STAFF_ROLES, title: 'Задача' } },
         { path: 'projects', name: 'projects', component: ProjectsView, meta: { roles: OVERSIGHT_ROLES, title: 'Проекты' } },
         { path: 'projects/:id(\\d+)', name: 'project', component: ProjectView, meta: { roles: OVERSIGHT_ROLES, title: 'Проект' } },
-        { path: 'notifications', name: 'notifications', component: NotificationsView, meta: { title: 'Уведомления' } },
+        { path: 'portal', name: 'portal', component: PortalView, meta: { roles: ['client'], title: 'Мои заказы' } },
+        { path: 'notifications', name: 'notifications', component: NotificationsView, meta: { roles: STAFF_ROLES, title: 'Уведомления' } },
         { path: 'users', name: 'users', component: UsersView, meta: { roles: ['admin'], title: 'Пользователи' } },
       ],
     },

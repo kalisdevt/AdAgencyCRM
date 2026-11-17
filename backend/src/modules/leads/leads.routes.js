@@ -5,6 +5,7 @@ import { idParam } from '../../validation.js'
 import { countUnreadDeals, listContacts, listDealsByClient, listInbox, listMessages } from '../deals/deals.repository.js'
 import { STAGE_CODES } from '../deals/stages.js'
 import { listProjects } from '../projects/projects.repository.js'
+import { createUser, updateUser } from '../users/users.service.js'
 import { normalizePhone } from './contacts.js'
 
 const inboxQuerySchema = z.object({
@@ -30,6 +31,21 @@ const clientSchema = z
     ),
     address: nullableText(300),
     note: nullableText(2000),
+  })
+  .partial()
+
+const accountCreateSchema = z.object({
+  login: z
+    .string({ error: 'Укажите логин' })
+    .trim()
+    .regex(/^[a-zA-Z0-9._-]{3,40}$/, 'Логин: 3–40 символов, латинские буквы, цифры, точка, дефис, подчеркивание'),
+  password: z.string({ error: 'Укажите пароль' }).min(8, 'Пароль должен быть не короче 8 символов').max(72, 'Пароль должен быть не длиннее 72 символов'),
+})
+
+const accountUpdateSchema = z
+  .object({
+    isActive: z.boolean(),
+    password: accountCreateSchema.shape.password,
   })
   .partial()
 
@@ -93,6 +109,29 @@ export function clientsRoutes({ pool }) {
 
   router.get('/:id', async (req, res) => {
     res.json(await loadCard(idParam(req.params.id)))
+  })
+
+  // Учетная запись клиента для личного кабинета создается менеджером (FR-PORT-01)
+  router.post('/:id/account', async (req, res) => {
+    const id = idParam(req.params.id)
+    const { rows } = await pool.query('SELECT name, email FROM clients WHERE id = $1', [id])
+    if (!rows[0]) throw notFound('Клиент не найден')
+    const data = accountCreateSchema.parse(req.body ?? {})
+    await createUser(pool, { ...data, fullName: rows[0].name, role: 'client', clientId: id })
+    res.status(201).json(await loadCard(id))
+  })
+
+  // Блокировка и смена пароля — только для учетной записи этого клиента
+  router.patch('/:id/account/:userId', async (req, res) => {
+    const id = idParam(req.params.id)
+    const userId = idParam(req.params.userId)
+    const { rowCount } = await pool.query(
+      `SELECT 1 FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = $1 AND u.client_id = $2 AND r.code = 'client'`,
+      [userId, id],
+    )
+    if (!rowCount) throw notFound('Учетная запись клиента не найдена')
+    await updateUser(pool, userId, accountUpdateSchema.parse(req.body ?? {}), req.user)
+    res.json(await loadCard(id))
   })
 
   router.patch('/:id', async (req, res) => {

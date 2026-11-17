@@ -51,6 +51,52 @@ async function save() {
   }
 }
 
+// Учетная запись клиента для личного кабинета (FR-PORT-01)
+const account = reactive({ login: '', password: '' })
+const accountBusy = ref(false)
+const accountError = ref('')
+const accountInfo = ref('')
+const newPassword = ref('')
+
+async function accountAction(action, successText) {
+  accountBusy.value = true
+  accountError.value = ''
+  accountInfo.value = ''
+  try {
+    card.value = await action()
+    accountInfo.value = successText
+    return true
+  } catch (error) {
+    accountError.value = error.message
+    return false
+  } finally {
+    accountBusy.value = false
+  }
+}
+
+async function createAccount() {
+  const login = account.login
+  const ok = await accountAction(
+    () => api.post(`/clients/${route.params.id}/account`, { ...account }),
+    `Учетная запись создана. Передайте клиенту логин «${login}» и пароль — он войдет на странице входа.`,
+  )
+  if (ok) Object.assign(account, { login: '', password: '' })
+}
+
+const toggleAccount = (portalAccount) =>
+  accountAction(
+    () => api.patch(`/clients/${route.params.id}/account/${portalAccount.id}`, { isActive: !portalAccount.isActive }),
+    portalAccount.isActive ? 'Доступ в кабинет заблокирован.' : 'Доступ в кабинет восстановлен.',
+  )
+
+async function changePassword(portalAccount) {
+  const ok = await accountAction(
+    () => api.patch(`/clients/${route.params.id}/account/${portalAccount.id}`, { password: newPassword.value }),
+    'Пароль изменен.',
+  )
+  if (ok) newPassword.value = ''
+}
+
 function contactLabel(contact) {
   return contact.username ? `@${contact.username}` : contact.displayName || contact.externalId
 }
@@ -128,6 +174,31 @@ watch(() => route.params.id, load, { immediate: true })
               </li>
             </ul>
             <p v-else class="muted empty">Проектов пока нет: проект создается из оплаченной сделки.</p>
+          </section>
+
+          <section class="card block">
+            <h2>Личный кабинет</h2>
+            <template v-if="card.portalAccounts.length">
+              <div v-for="portalAccount in card.portalAccounts" :key="portalAccount.id" class="account">
+                <p class="account-line">
+                  Логин <b>{{ portalAccount.login }}</b>
+                  <span class="badge" :class="portalAccount.isActive ? 'badge-accent' : 'badge-danger'">{{ portalAccount.isActive ? 'Доступ открыт' : 'Заблокирован' }}</span>
+                </p>
+                <form class="account-form" @submit.prevent="changePassword(portalAccount)">
+                  <input v-model="newPassword" class="control" type="password" minlength="8" maxlength="72" autocomplete="new-password" placeholder="Новый пароль, от 8 символов" aria-label="Новый пароль клиента" />
+                  <button class="btn btn-ghost btn-small" type="submit" :disabled="accountBusy || newPassword.length < 8">Сменить пароль</button>
+                  <button class="btn btn-ghost btn-small" type="button" :disabled="accountBusy" @click="toggleAccount(portalAccount)">{{ portalAccount.isActive ? 'Заблокировать' : 'Разблокировать' }}</button>
+                </form>
+              </div>
+            </template>
+            <form v-else class="account-create" @submit.prevent="createAccount">
+              <p class="muted">Клиент сможет видеть статусы своих заказов и архив проектов.</p>
+              <label class="field"><span>Логин клиента</span><input v-model.trim="account.login" class="control" required pattern="[a-zA-Z0-9._\-]{3,40}" autocomplete="off" title="3–40 символов: латинские буквы, цифры, точка, дефис, подчеркивание" /></label>
+              <label class="field"><span>Пароль (не короче 8 символов)</span><input v-model="account.password" class="control" type="password" required minlength="8" maxlength="72" autocomplete="new-password" /></label>
+              <button class="btn" type="submit" :disabled="accountBusy">Создать доступ в кабинет</button>
+            </form>
+            <p v-if="accountError" class="notice notice-error" role="alert">{{ accountError }}</p>
+            <p v-if="accountInfo" class="notice" role="status">{{ accountInfo }}</p>
           </section>
         </div>
 
