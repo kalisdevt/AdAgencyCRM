@@ -29,10 +29,12 @@ export function projectsRoutes({ pool, channels }) {
 
   router.get('/', async (req, res) => {
     const query = listSchema.parse(req.query)
-    const items = await listProjects(pool, { status: query.status, managerId: query.manager ? req.user.id : undefined })
-    // Сводка по этапам для панели руководителя
+    const managerId = query.manager ? req.user.id : undefined
+    const all = await listProjects(pool, { managerId })
+    const items = query.status ? all.filter((project) => project.status === query.status) : all
+    // Сводка по этапам для панели руководителя — по всем проектам, независимо от фильтра статуса
     const summary = Object.fromEntries(PROJECT_STAGES.map((stage) => [stage.code, 0]))
-    for (const project of items) if (project.currentStage) summary[project.status === 'completed' ? 'completed' : project.currentStage.code] += 1
+    for (const project of all) summary[project.status === 'completed' ? 'completed' : project.currentStage.code] += 1
     res.json({ items, summary })
   })
 

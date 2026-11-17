@@ -83,10 +83,11 @@ export async function notifyClientAboutStage(pool, channels, project, code) {
   const { rows } = await pool.query('SELECT source_channel FROM deals WHERE id = $1', [project.deal.id])
   const channel = rows[0]?.source_channel
   const adapter = channels.get(channel)
-  if (!adapter?.canReply || !adapter.isConfigured) return { sent: false, reason: 'Канал клиента не поддерживает уведомления' }
+  if (!adapter?.canReply) return { sent: false, reason: 'канал обращения не поддерживает сообщения из системы' }
+  if (!adapter.isConfigured) return { sent: false, reason: `${adapter.title}: канал не подключен на сервере` }
   const contacts = await listContacts(pool, project.client.id)
   const contact = contacts.find((item) => item.channel === channel)
-  if (!contact) return { sent: false, reason: 'У клиента нет контакта в канале обращения' }
+  if (!contact) return { sent: false, reason: 'у клиента нет контакта в канале обращения' }
 
   const text = stageMessage(project, code)
   try {
