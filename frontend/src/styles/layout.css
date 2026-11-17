@@ -56,3 +56,8 @@
 @media (max-width: 720px) {
   .counter { top: 4px; right: calc(50% - 22px); }
 }
+
+/* Ссылка на демонстрационную форму сайта на телефоне не нужна: экономим место в нижней панели */
+@media (max-width: 720px) {
+  .nav-demo { display: none; }
+}

@@ -2,6 +2,7 @@
 import { onBeforeUnmount, reactive, watch } from 'vue'
 import { api } from '../api.js'
 import { fileSize, shortTime, fullTime } from '../labels.js'
+import { openProtectedFile } from '../openFile.js'
 
 // Список файлов с миниатюрами изображений. Файлы защищены токеном,
 // поэтому миниатюры загружаются через API и показываются из памяти браузера.
@@ -26,21 +27,9 @@ watch(() => props.files, (files) => files.forEach(loadPreview), { immediate: tru
 
 async function open(file, download = false) {
   errors[file.id] = ''
-  // Окно открываем сразу, по клику: иначе браузер заблокирует его как всплывающее
-  const target = download ? null : window.open('', '_blank')
   try {
-    const url = URL.createObjectURL(await api.blob(`/files/${file.id}${download ? '?download=1' : ''}`))
-    if (target) {
-      target.location.href = url
-    } else {
-      const link = document.createElement('a')
-      link.href = url
-      link.download = file.name
-      link.click()
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    await openProtectedFile(`/files/${file.id}${download ? '?download=1' : ''}`, { download, fileName: file.name })
   } catch (error) {
-    target?.close()
     errors[file.id] = error.message
   }
 }
