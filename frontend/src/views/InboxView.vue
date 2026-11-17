@@ -20,6 +20,7 @@ const loadingList = ref(true)
 
 const managers = ref([])
 const refusalReasons = ref([])
+const campaigns = ref([])
 
 const selectedId = computed(() => (route.params.dealId ? Number(route.params.dealId) : null))
 const detail = ref(null)
@@ -188,6 +189,30 @@ function onDealChanged() {
   loadList()
 }
 
+// Кампания сделки (FR-DEAL-02): из UTM-метки или вручную
+function onCampaignChange(event) {
+  const value = event.target.value
+  patchDeal({ campaignId: value ? Number(value) : null }).then((ok) => {
+    if (!ok) event.target.value = detail.value.deal.campaignId ?? ''
+  })
+}
+
+function onTitleChange(event) {
+  const title = event.target.value.trim()
+  if (!title || title === detail.value.deal.title) {
+    event.target.value = detail.value.deal.title
+    return
+  }
+  patchDeal({ title }).then((ok) => {
+    if (!ok) event.target.value = detail.value.deal.title
+  })
+}
+
+// В списке — активные кампании и текущая кампания сделки, даже если ее скрыли
+const campaignOptions = computed(() =>
+  campaigns.value.filter((campaign) => campaign.isActive || campaign.id === detail.value?.deal.campaignId),
+)
+
 async function sendReply() {
   const text = replyText.value.trim()
   if (!text || sending.value) return
@@ -244,9 +269,14 @@ onMounted(async () => {
   loadDetail()
   timer = setInterval(refresh, REFRESH_MS)
   document.addEventListener('visibilitychange', refresh)
-  const [staff, reasons] = await Promise.allSettled([api.get('/users/assignable'), api.get('/deals/refusal-reasons')])
+  const [staff, reasons, campaignList] = await Promise.allSettled([
+    api.get('/users/assignable'),
+    api.get('/deals/refusal-reasons'),
+    api.get('/dictionaries/campaigns'),
+  ])
   if (staff.status === 'fulfilled') managers.value = staff.value.items
   if (reasons.status === 'fulfilled') refusalReasons.value = reasons.value.items
+  if (campaignList.status === 'fulfilled') campaigns.value = campaignList.value.items
 })
 
 onBeforeUnmount(() => {
@@ -359,6 +389,17 @@ onBeforeUnmount(() => {
           <label class="field amount">
             <span>Сумма, ₽</span>
             <input class="control" type="number" min="0" step="100" inputmode="numeric" :value="detail.deal.amount" :disabled="saving" @change="onAmountChange" />
+          </label>
+          <label class="field">
+            <span>Рекламная кампания</span>
+            <select class="control" :value="detail.deal.campaignId ?? ''" :disabled="saving" @change="onCampaignChange">
+              <option value="">Без кампании</option>
+              <option v-for="campaign in campaignOptions" :key="campaign.id" :value="campaign.id">{{ campaign.name }}</option>
+            </select>
+          </label>
+          <label class="field deal-title">
+            <span>Название сделки</span>
+            <input class="control" :value="detail.deal.title" maxlength="200" :disabled="saving" @change="onTitleChange" @keydown.enter.prevent="$event.target.blur()" />
           </label>
         </div>
 
