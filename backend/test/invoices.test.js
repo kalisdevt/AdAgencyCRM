@@ -183,6 +183,18 @@ describe('Счета и проекты', () => {
     assert.match(sent.at(-1).payload.text, /выполнен этап «Дизайн».*«Согласование»/)
   })
 
+  it('одновременная отметка одного этапа (двойной клик) выполняется один раз', async () => {
+    const sentBefore = telegram.calls.filter((call) => call.method === 'sendMessage').length
+    const mark = () => ctx.request('POST', `/projects/${projectId}/stages/approval`, { token: manager, body: { done: true } })
+    const results = await Promise.all([mark(), mark(), mark()])
+    assert.deepEqual(results.map((res) => res.status), [200, 200, 200])
+    // клиент получил одно уведомление, а не три
+    assert.equal(results.filter((res) => res.body.clientNotification?.sent).length, 1)
+    assert.equal(telegram.calls.filter((call) => call.method === 'sendMessage').length, sentBefore + 1)
+    // откатываем, чтобы следующие проверки шли от этапа «Согласование»
+    await ctx.request('POST', `/projects/${projectId}/stages/approval`, { token: manager, body: { done: false } })
+  })
+
   it('отметить этап может только ответственный или руководитель', async () => {
     assert.equal((await ctx.request('POST', `/projects/${projectId}/stages/approval`, { token: await ctx.loginAs('manager2'), body: { done: true } })).status, 403)
     assert.equal((await ctx.request('POST', `/projects/${projectId}/stages/approval`, { token: director, body: { done: true } })).status, 403)
