@@ -127,11 +127,15 @@ export function reportsRoutes({ pool }) {
     const report = await BUILDERS[req.params.type](pool, period)
     const { columns, rows } = CSV_LAYOUTS[req.params.type](report)
     const suffix = req.params.type === 'revenue' ? today() : `${period.from}_${period.to}`
+    const content = Buffer.from(toCsv(columns, rows), 'utf8')
     res.set({
       'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Length': String(content.length),
       'Content-Disposition': `attachment; filename="report-${req.params.type}-${suffix}.csv"`,
+      // файл только скачивается: браузер не должен трактовать его как страницу
+      'X-Content-Type-Options': 'nosniff',
     })
-    res.send(toCsv(columns, rows))
+    res.end(content)
   })
 
   return router
