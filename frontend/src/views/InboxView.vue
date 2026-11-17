@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api.js'
 import { CHANNELS, STAGES, channelName, fullTime, shortTime, stageName } from '../labels.js'
+import DealTasks from '../components/DealTasks.vue'
 
 // Новые обращения должны появляться в ленте не позже чем через 10 секунд (приемочный сценарий ТЗ)
 const REFRESH_MS = 5000
@@ -31,6 +32,10 @@ const thread = ref(null)
 
 // Форма отказа открывается прямо в панели диалога, без перехода на другую страницу
 const refusal = reactive({ open: false, reasonId: '', comment: '' })
+
+// Вкладки карточки сделки: переписка и задачи
+const tab = ref('dialog')
+const openTasks = ref(null)
 
 function inboxQuery() {
   const params = new URLSearchParams()
@@ -199,6 +204,8 @@ watch(filters, () => {
 })
 
 watch(selectedId, () => {
+  tab.value = 'dialog'
+  openTasks.value = null
   refusal.open = false
   actionError.value = ''
   replyText.value = ''
@@ -360,7 +367,18 @@ onBeforeUnmount(() => {
 
         <p v-if="actionError" class="notice notice-error action-error" role="alert">{{ actionError }}</p>
 
-        <div ref="thread" class="thread">
+        <nav class="tabs" aria-label="Разделы сделки">
+          <button class="tab" :class="{ active: tab === 'dialog' }" type="button" @click="tab = 'dialog'; scrollThreadToEnd()">Диалог</button>
+          <button class="tab" :class="{ active: tab === 'tasks' }" type="button" @click="tab = 'tasks'">
+            Задачи<span v-if="openTasks" class="tab-count">{{ openTasks }}</span>
+          </button>
+        </nav>
+
+        <div v-show="tab === 'tasks'" class="tab-scroll">
+          <DealTasks :deal-id="detail.deal.id" @count="openTasks = $event" />
+        </div>
+
+        <div v-show="tab === 'dialog'" ref="thread" class="thread">
           <div v-for="message in detail.messages" :key="message.id" class="bubble-row" :class="message.direction">
             <div class="bubble">
               <p>{{ message.text }}</p>
@@ -371,7 +389,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <form class="reply" @submit.prevent="sendReply">
+        <form v-show="tab === 'dialog'" class="reply" @submit.prevent="sendReply">
           <p v-if="detail.replyUnavailableReason" class="reply-blocked">{{ detail.replyUnavailableReason }}</p>
           <template v-else>
             <textarea

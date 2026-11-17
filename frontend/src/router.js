@@ -1,11 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { auth, homeRouteFor, onSessionExpired, SALES_ROLES } from './auth.js'
+import { auth, homeRouteFor, onSessionExpired, SALES_ROLES, STAFF_ROLES } from './auth.js'
 import AppLayout from './views/AppLayout.vue'
 import ClientView from './views/ClientView.vue'
 import HomeView from './views/HomeView.vue'
 import InboxView from './views/InboxView.vue'
 import LoginView from './views/LoginView.vue'
+import NotificationsView from './views/NotificationsView.vue'
 import RequestFormView from './views/RequestFormView.vue'
+import TasksView from './views/TasksView.vue'
+import TaskView from './views/TaskView.vue'
 import UsersView from './views/UsersView.vue'
 
 const router = createRouter({
@@ -21,6 +24,9 @@ const router = createRouter({
         { path: '', name: 'home', component: HomeView, meta: { title: 'Главная' } },
         { path: 'inbox/:dealId(\\d+)?', name: 'inbox', component: InboxView, meta: { roles: SALES_ROLES, title: 'Входящие' } },
         { path: 'clients/:id(\\d+)', name: 'client', component: ClientView, meta: { roles: SALES_ROLES, title: 'Карточка клиента' } },
+        { path: 'tasks', name: 'tasks', component: TasksView, meta: { roles: STAFF_ROLES, title: 'Задачи' } },
+        { path: 'tasks/:id(\\d+)', name: 'task', component: TaskView, meta: { roles: STAFF_ROLES, title: 'Задача' } },
+        { path: 'notifications', name: 'notifications', component: NotificationsView, meta: { title: 'Уведомления' } },
         { path: 'users', name: 'users', component: UsersView, meta: { roles: ['admin'], title: 'Пользователи' } },
       ],
     },
@@ -36,8 +42,11 @@ router.beforeEach(async (to) => {
   if (to.meta.public) return true
   if (!user) return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
   if (to.meta.roles && !to.meta.roles.includes(user.role)) return { name: 'home' }
-  // У сотрудников продаж рабочий экран — «Входящие»
-  if (to.name === 'home' && SALES_ROLES.includes(user.role)) return { name: 'inbox' }
+  // У каждой роли свой рабочий экран
+  if (to.name === 'home') {
+    const home = homeRouteFor(user)
+    if (home.name !== 'home') return home
+  }
   return true
 })
 
