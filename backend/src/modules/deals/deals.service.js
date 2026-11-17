@@ -25,7 +25,7 @@ export function replyBlocker(deal, contacts, channels) {
 export async function updateDeal(pool, id, changes) {
   return withTransaction(pool, async (db) => {
     const locked = await db.query(
-      `SELECT stage, refusal_reason_id, refusal_comment, assignee_id, amount, closed_at
+      `SELECT stage, refusal_reason_id, refusal_comment, assignee_id, amount, closed_at, campaign_id, title
          FROM deals WHERE id = $1 FOR UPDATE`,
       [id],
     )
@@ -70,13 +70,19 @@ export async function updateDeal(pool, id, changes) {
       if (!assignee.rowCount) throw badRequest('Ответственным можно назначить только действующего менеджера')
     }
 
+    // Кампания выбирается вручную, если не пришла из UTM-метки (FR-DEAL-02)
+    if (changes.campaignId) {
+      const campaign = await db.query('SELECT 1 FROM campaigns WHERE id = $1 AND is_active', [changes.campaignId])
+      if (!campaign.rowCount) throw badRequest('Рекламная кампания не найдена в справочнике')
+    }
+
     let closedAt = current.closed_at
     if (stageChanged) closedAt = CLOSED_STAGES.includes(stage) ? new Date() : null
 
     await db.query(
       `UPDATE deals
           SET stage = $2, refusal_reason_id = $3, refusal_comment = $4, assignee_id = $5,
-              amount = $6, closed_at = $7, updated_at = now()
+              amount = $6, closed_at = $7, campaign_id = $8, title = $9, updated_at = now()
         WHERE id = $1`,
       [
         id,
@@ -86,6 +92,8 @@ export async function updateDeal(pool, id, changes) {
         changes.assigneeId === undefined ? current.assignee_id : changes.assigneeId,
         changes.amount ?? current.amount,
         closedAt,
+        changes.campaignId === undefined ? current.campaign_id : changes.campaignId,
+        changes.title ?? current.title,
       ],
     )
     return findDeal(db, id)

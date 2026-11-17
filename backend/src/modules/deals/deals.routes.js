@@ -12,6 +12,8 @@ const updateSchema = z
     refusalReasonId: z.number({ error: 'Выберите причину отказа' }).int().positive(),
     refusalComment: z.string().max(1000, 'Комментарий слишком длинный').nullable(),
     assigneeId: z.number().int().positive().nullable(),
+    campaignId: z.number().int().positive().nullable(),
+    title: z.string().trim().min(2, 'Название сделки слишком короткое').max(200, 'Название сделки длиннее 200 символов'),
     amount: z
       .number({ error: 'Сумма должна быть числом' })
       .min(0, 'Сумма не может быть отрицательной')
