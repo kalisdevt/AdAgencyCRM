@@ -150,6 +150,13 @@ describe('Отчеты и справочники', () => {
     assert.equal((await patchDeal('open', { campaignId: campaign.body.item.id })).status, 400)
   })
 
+  it('руководитель открывает переписку по сделке любого менеджера (FR-AN-06)', async () => {
+    const res = await ctx.request('GET', `/deals/${deals.expensive}`, { token: tokens.head })
+    assert.equal(res.status, 200)
+    assert.equal(res.body.deal.assignee.fullName, 'Игорь Продажин')
+    assert.ok(res.body.messages.length > 0)
+  })
+
   it('название сделки можно изменить', async () => {
     const res = await patchDeal('open', { title: 'Вывеска для выставки' })
     assert.equal(res.body.deal.title, 'Вывеска для выставки')
