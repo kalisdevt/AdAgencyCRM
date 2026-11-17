@@ -71,7 +71,7 @@ docker compose up --build
 
 3. Перезапустите: `docker compose up -d`.
 
-`TELEGRAM_POLLING=true` включает длинный опрос — публичный адрес не нужен. На сервере с HTTPS вместо опроса используется вебхук `POST /api/channels/telegram/webhook`: задайте `TELEGRAM_WEBHOOK_SECRET` и зарегистрируйте адрес методом `setWebhook` с тем же `secret_token`.
+`TELEGRAM_POLLING=true` включает длинный опрос — публичный адрес не нужен. На сервере с HTTPS (например, Vercel) вместо опроса используется вебхук `POST /api/channels/telegram/webhook`: задайте на сервере `TELEGRAM_BOT_TOKEN` и `TELEGRAM_WEBHOOK_SECRET`, впишите те же значения в `backend/.env` и зарегистрируйте адрес командой `cd backend && npm run telegram -- set https://<домен>`. Пошагово — в [docs/deploy-vercel.md](docs/deploy-vercel.md#telegram-на-vercel).
 
 Сообщение боту появляется во «Входящих», ответ из панели диалога приходит клиенту в Telegram.
 
