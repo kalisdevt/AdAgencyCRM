@@ -35,6 +35,18 @@ export async function updateDeal(pool, id, changes) {
     const stage = changes.stage ?? current.stage
     const stageChanged = stage !== current.stage
 
+    // Стадии «Счет выставлен» и «Оплачено» связаны со счетами (FR-DOC-02)
+    if (stageChanged) {
+      if (current.stage === 'paid') throw badRequest('Сделка оплачена, по ней создан проект: стадию изменить нельзя')
+      if (stage === 'paid') {
+        throw badRequest('Стадия «Оплачено» ставится автоматически, когда менеджер отмечает оплату счета')
+      }
+      if (stage === 'invoiced') {
+        const pending = await db.query(`SELECT 1 FROM invoices WHERE deal_id = $1 AND status = 'pending'`, [id])
+        if (!pending.rowCount) throw badRequest('Сначала сформируйте счет — стадия «Счет выставлен» установится автоматически')
+      }
+    }
+
     // Причина и комментарий существуют только у сделки в «Отказе»
     let refusalReasonId = null
     let refusalComment = null

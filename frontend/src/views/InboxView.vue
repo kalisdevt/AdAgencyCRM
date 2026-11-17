@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api.js'
 import { CHANNELS, STAGES, channelName, fullTime, shortTime, stageName } from '../labels.js'
+import DealInvoices from '../components/DealInvoices.vue'
 import DealTasks from '../components/DealTasks.vue'
 
 // Новые обращения должны появляться в ленте не позже чем через 10 секунд (приемочный сценарий ТЗ)
@@ -169,6 +170,24 @@ function onAmountChange(event) {
   })
 }
 
+// «Счет выставлен» и «Оплачено» ставятся через счета (вкладка «Счета»), а не вручную
+function isStageLocked(code) {
+  const deal = detail.value.deal
+  if (code === deal.stage) return false
+  return code === 'paid' || (code === 'invoiced' && !deal.pendingInvoices)
+}
+
+const stageHint = computed(() =>
+  detail.value?.deal.stage === 'paid'
+    ? 'Сделка оплачена, по ней создан проект'
+    : '«Счет выставлен» и «Оплачено» ставятся автоматически на вкладке «Счета»',
+)
+
+function onDealChanged() {
+  loadDetail({ silent: true })
+  loadList()
+}
+
 async function sendReply() {
   const text = replyText.value.trim()
   if (!text || sending.value) return
@@ -326,8 +345,8 @@ onBeforeUnmount(() => {
         <div class="deal-controls">
           <label class="field">
             <span>Стадия сделки</span>
-            <select class="control" :value="detail.deal.stage" :disabled="saving" @change="onStageChange">
-              <option v-for="stage in STAGES" :key="stage.code" :value="stage.code">{{ stage.name }}</option>
+            <select class="control" :value="detail.deal.stage" :disabled="saving || detail.deal.stage === 'paid'" :title="stageHint" @change="onStageChange">
+              <option v-for="stage in STAGES" :key="stage.code" :value="stage.code" :disabled="isStageLocked(stage.code)">{{ stage.name }}</option>
             </select>
           </label>
           <label class="field">
@@ -372,7 +391,14 @@ onBeforeUnmount(() => {
           <button class="tab" :class="{ active: tab === 'tasks' }" type="button" @click="tab = 'tasks'">
             Задачи<span v-if="openTasks" class="tab-count">{{ openTasks }}</span>
           </button>
+          <button class="tab" :class="{ active: tab === 'invoices' }" type="button" @click="tab = 'invoices'">
+            Счета<span v-if="detail.deal.pendingInvoices" class="tab-count">{{ detail.deal.pendingInvoices }}</span>
+          </button>
         </nav>
+
+        <div v-if="tab === 'invoices'" class="tab-scroll">
+          <DealInvoices :deal="detail.deal" @changed="onDealChanged" />
+        </div>
 
         <div v-show="tab === 'tasks'" class="tab-scroll">
           <DealTasks :deal-id="detail.deal.id" @count="openTasks = $event" />

@@ -12,7 +12,9 @@ import { dealsRoutes } from './modules/deals/deals.routes.js'
 import { tasksRoutes } from './modules/tasks/tasks.routes.js'
 import { filesRoutes } from './modules/files/files.routes.js'
 import { notificationsRoutes } from './modules/notifications/notifications.js'
-import { SALES_ROLES, STAFF_ROLES } from './roles.js'
+import { invoicesRoutes } from './modules/invoices/invoices.routes.js'
+import { projectsRoutes } from './modules/projects/projects.routes.js'
+import { OVERSIGHT_ROLES, SALES_ROLES, STAFF_ROLES } from './roles.js'
 import { createStorage } from './storage.js'
 
 export function createApp({
@@ -41,6 +43,8 @@ export function createApp({
   api.use('/deals', auth, requireRole(...SALES_ROLES), dealsRoutes({ pool, channels }))
   api.use('/clients', auth, requireRole(...SALES_ROLES), clientsRoutes({ pool }))
   api.use('/tasks', auth, requireRole(...STAFF_ROLES), tasksRoutes({ pool, storage }))
+  api.use('/invoices', auth, requireRole(...SALES_ROLES), invoicesRoutes({ pool, storage, channels }))
+  api.use('/projects', auth, requireRole(...OVERSIGHT_ROLES), projectsRoutes({ pool, channels }))
   api.use('/files', auth, filesRoutes({ pool, storage }))
   api.use('/notifications', auth, notificationsRoutes({ pool }))
 

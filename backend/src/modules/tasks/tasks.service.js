@@ -76,8 +76,9 @@ export async function createTask(pool, data, author) {
 
 export async function updateTask(pool, id, changes, user) {
   return withTransaction(pool, async (db) => {
-    const task = await requireTask(db, id, user)
+    // Блокировка до чтения: изменения и уведомления считаются от актуального состояния задачи
     await db.query('SELECT 1 FROM tasks WHERE id = $1 FOR UPDATE', [id])
+    const task = await requireTask(db, id, user)
 
     const editsContent = ['title', 'description', 'assigneeId', 'dueDate'].some((key) => changes[key] !== undefined)
     if (editsContent && !canEditTask(user, task)) {

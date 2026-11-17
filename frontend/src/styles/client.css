@@ -42,3 +42,8 @@ a.row-link:hover b { text-decoration: underline; text-underline-offset: 3px; }
   .row-link small, .timeline small { font-size: 13px; }
   .timeline p { font-size: 15px; }
 }
+
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; }
+@media (max-width: 720px) {
+  .pair { grid-template-columns: minmax(0, 1fr); }
+}

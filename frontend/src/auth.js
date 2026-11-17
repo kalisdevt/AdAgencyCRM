@@ -76,6 +76,7 @@ export const auth = {
 export function homeRouteFor(user) {
   if (SALES_ROLES.includes(user.role)) return { name: 'inbox' }
   if (user.role === 'designer') return { name: 'tasks' }
+  if (user.role === 'director') return { name: 'projects' }
   return { name: 'home' }
 }
 

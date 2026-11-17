@@ -59,3 +59,14 @@ export function fileSize(bytes) {
 
 // Допустимые форматы файлов задач (проверяются и на сервере)
 export const FILE_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.pdf,.zip,.psd,.ai,.eps,.cdr,.tif,.tiff,.docx,.xlsx,.txt'
+
+export const PROJECT_STAGES = [
+  { code: 'design', name: 'Дизайн' },
+  { code: 'approval', name: 'Согласование' },
+  { code: 'printing', name: 'Печать' },
+  { code: 'placement', name: 'Размещение' },
+  { code: 'completed', name: 'Завершен' },
+]
+
+const invoiceStatusNames = { pending: 'Ожидает оплаты', paid: 'Оплачен' }
+export const invoiceStatusName = (code) => invoiceStatusNames[code] ?? code

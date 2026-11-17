@@ -8,7 +8,7 @@ const route = useRoute()
 
 const card = ref(null)
 const loadError = ref('')
-const form = reactive({ name: '', phone: '', email: '', company: '', note: '' })
+const form = reactive({ name: '', phone: '', email: '', company: '', inn: '', address: '', note: '' })
 const saving = ref(false)
 const saveError = ref('')
 const saved = ref(false)
@@ -19,6 +19,8 @@ function fillForm(client) {
     phone: client.phone ?? '',
     email: client.email ?? '',
     company: client.company ?? '',
+    inn: client.inn ?? '',
+    address: client.address ?? '',
     note: client.note ?? '',
   })
 }
@@ -77,6 +79,10 @@ watch(() => route.params.id, load, { immediate: true })
             <label class="field"><span>Телефон</span><input v-model.trim="form.phone" class="control" type="tel" placeholder="+7 900 000-00-00" /></label>
             <label class="field"><span>Почта</span><input v-model.trim="form.email" class="control" type="email" /></label>
             <label class="field"><span>Компания</span><input v-model.trim="form.company" class="control" maxlength="200" /></label>
+            <div class="pair">
+              <label class="field"><span>ИНН (для счета)</span><input v-model.trim="form.inn" class="control" inputmode="numeric" pattern="\d{10}|\d{12}" title="10 или 12 цифр" /></label>
+              <label class="field"><span>Адрес (для счета)</span><input v-model.trim="form.address" class="control" maxlength="300" /></label>
+            </div>
             <label class="field"><span>Заметка</span><textarea v-model.trim="form.note" class="control" rows="3" maxlength="2000"></textarea></label>
 
             <div v-if="card.contacts.length" class="channels">
@@ -111,8 +117,14 @@ watch(() => route.params.id, load, { immediate: true })
           <section class="card block">
             <h2>Проекты</h2>
             <ul v-if="card.projects.length" class="rows">
-              <li v-for="project in card.projects" :key="project.id" class="row-link">
-                <span class="row-main"><b>{{ project.title }}</b><small>{{ fullTime(project.createdAt) }}</small></span>
+              <li v-for="project in card.projects" :key="project.id">
+                <RouterLink class="row-link" :to="{ name: 'project', params: { id: project.id } }">
+                  <span class="row-main"><b>{{ project.title }}</b><small>{{ fullTime(project.createdAt) }}</small></span>
+                  <span class="row-side">
+                    <span class="badge" :class="{ 'badge-accent': project.status === 'completed' }">{{ project.status === 'completed' ? 'Завершен' : project.currentStage?.name }}</span>
+                    <small>{{ money(project.deal.amount) }}</small>
+                  </span>
+                </RouterLink>
               </li>
             </ul>
             <p v-else class="muted empty">Проектов пока нет: проект создается из оплаченной сделки.</p>

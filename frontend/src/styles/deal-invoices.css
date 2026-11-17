@@ -1,0 +1,22 @@
+.deal-invoices { display: flex; flex-direction: column; gap: 14px; padding: 18px 24px 24px; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toolbar h3 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
+.project-link { display: block; color: #45591b; font-weight: 700; text-decoration: none; }
+.project-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.create { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.sum { margin: 0; font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.empty { margin: 0; font-size: 13px; line-height: 1.6; }
+.list { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.invoice { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.head b { font-size: 14px; }
+.meta { margin: 0; color: var(--ink-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+.description { margin: 0; color: var(--ink-muted); font-size: 12px; overflow-wrap: anywhere; }
+.badge-pending { color: #8a5a00; background: #fdf1d6; }
+
+@media (max-width: 720px) {
+  .deal-invoices { padding: 14px 16px 20px; }
+  .actions .btn { flex: 1 1 140px; height: 44px; }
+  .meta, .description { font-size: 13px; }
+}

@@ -63,26 +63,29 @@ export function mimeTypeFor(name) {
   return type
 }
 
-// Сохраняет содержимое в хранилище и метаданные в таблицу files в одной транзакции
-export async function saveFile(pool, storage, { content, name, uploadedBy, taskId = null, dealId = null }) {
+// Сохраняет содержимое в хранилище и метаданные в таблицу files в рамках транзакции вызывающего
+export async function insertFile(db, storage, { content, name, uploadedBy, taskId = null, dealId = null, mimeType }) {
   if (!Buffer.isBuffer(content) || content.length === 0) throw badRequest('Файл пустой')
-  const mimeType = mimeTypeFor(name)
+  const type = mimeType ?? mimeTypeFor(name)
   const key = storage.newKey()
   try {
-    return await withTransaction(pool, async (db) => {
-      const { rows } = await db.query(
-        `INSERT INTO files (original_name, stored_path, mime_type, size_bytes, uploaded_by, task_id, deal_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING *`,
-        [name, key, mimeType, content.length, uploadedBy?.id ?? null, taskId, dealId],
-      )
-      await storage.write(key, content, db)
-      return toFile({ ...rows[0], uploader_name: uploadedBy?.fullName })
-    })
+    const { rows } = await db.query(
+      `INSERT INTO files (original_name, stored_path, mime_type, size_bytes, uploaded_by, task_id, deal_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [name, key, type, content.length, uploadedBy?.id ?? null, taskId, dealId],
+    )
+    await storage.write(key, content, db)
+    return { row: rows[0], file: toFile({ ...rows[0], uploader_name: uploadedBy?.fullName }) }
   } catch (error) {
     await storage.remove(key)
     throw error
   }
+}
+
+export async function saveFile(pool, storage, data) {
+  mimeTypeFor(data.name)
+  return withTransaction(pool, async (db) => (await insertFile(db, storage, data)).file)
 }
 
 // Отдает файл. Заголовки не дают браузеру выполнить содержимое как страницу нашего сайта.

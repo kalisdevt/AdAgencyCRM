@@ -5,6 +5,8 @@ const DEAL_SELECT = `
          d.client_id, c.name AS client_name, c.phone AS client_phone, c.email AS client_email,
          d.assignee_id, u.full_name AS assignee_name,
          cmp.name AS campaign_name,
+         (SELECT p.id FROM projects p WHERE p.deal_id = d.id) AS project_id,
+         (SELECT count(*)::int FROM invoices i WHERE i.deal_id = d.id AND i.status = 'pending') AS pending_invoices,
          (SELECT count(*) FROM deals other WHERE other.client_id = d.client_id AND other.id <> d.id) > 0 AS is_returning,
          lm.body AS last_message, lm.direction AS last_direction, lm.created_at AS last_message_at,
          COALESCE(um.unread, 0) AS unread
@@ -50,6 +52,8 @@ export function toDeal(row) {
       ? { text: row.last_message, direction: row.last_direction, createdAt: row.last_message_at }
       : null,
     unread: row.unread,
+    projectId: row.project_id,
+    pendingInvoices: row.pending_invoices,
   }
 }
 

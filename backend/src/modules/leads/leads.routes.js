@@ -4,6 +4,7 @@ import { notFound } from '../../errors.js'
 import { idParam } from '../../validation.js'
 import { countUnreadDeals, listContacts, listDealsByClient, listInbox, listMessages } from '../deals/deals.repository.js'
 import { STAGE_CODES } from '../deals/stages.js'
+import { listProjects } from '../projects/projects.repository.js'
 import { normalizePhone } from './contacts.js'
 
 const inboxQuerySchema = z.object({
@@ -23,6 +24,11 @@ const clientSchema = z
     phone: nullableText(30),
     email: z.preprocess((value) => (value === '' ? null : value), z.email('Некорректный адрес почты').max(200).nullable()),
     company: nullableText(200),
+    inn: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+      z.string().trim().regex(/^(\d{10}|\d{12})$/, 'ИНН — 10 или 12 цифр').nullable(),
+    ),
+    address: nullableText(300),
     note: nullableText(2000),
   })
   .partial()
@@ -34,6 +40,8 @@ function toClient(row) {
     phone: row.phone,
     email: row.email,
     company: row.company,
+    inn: row.inn,
+    address: row.address,
     note: row.note,
     createdAt: row.created_at,
   }
@@ -63,18 +71,23 @@ export function clientsRoutes({ pool }) {
   async function loadCard(id) {
     const { rows } = await pool.query('SELECT * FROM clients WHERE id = $1', [id])
     if (!rows[0]) throw notFound('Клиент не найден')
-    const [contacts, deals, messages, projects] = await Promise.all([
+    const [contacts, deals, messages, projects, portalAccounts] = await Promise.all([
       listContacts(pool, id),
       listDealsByClient(pool, id),
       listMessages(pool, { clientId: id }),
-      pool.query('SELECT id, title, status, created_at FROM projects WHERE client_id = $1 ORDER BY created_at DESC', [id]),
+      listProjects(pool, { clientId: id }),
+      pool.query(
+        `SELECT u.id, u.login, u.is_active FROM users u JOIN roles r ON r.id = u.role_id WHERE u.client_id = $1 AND r.code = 'client'`,
+        [id],
+      ),
     ])
     return {
       client: toClient(rows[0]),
       contacts,
       deals,
       messages,
-      projects: projects.rows.map((row) => ({ id: row.id, title: row.title, status: row.status, createdAt: row.created_at })),
+      projects,
+      portalAccounts: portalAccounts.rows.map((row) => ({ id: row.id, login: row.login, isActive: row.is_active })),
     }
   }
 
@@ -91,7 +104,7 @@ export function clientsRoutes({ pool }) {
         return res.status(400).json({ error: { code: 'validation_error', message: 'Некорректный номер телефона' } })
       }
     }
-    const columns = { name: 'name', phone: 'phone', email: 'email', company: 'company', note: 'note' }
+    const columns = { name: 'name', phone: 'phone', email: 'email', company: 'company', inn: 'inn', address: 'address', note: 'note' }
     const fields = Object.keys(columns).filter((key) => data[key] !== undefined)
     if (fields.length) {
       const sets = fields.map((key, index) => `${columns[key]} = $${index + 2}`).join(', ')

@@ -19,6 +19,8 @@ ENV FILE_STORAGE=db
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json ./
 COPY migrations ./migrations
+# Шрифт с кириллицей для счетов в PDF
+COPY assets ./assets
 COPY src ./src
 USER node
 CMD ["node", "src/server.js"]
