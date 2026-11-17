@@ -9,14 +9,17 @@ import { createChannels } from './modules/channels/index.js'
 import { channelWebhookRoutes, publicRoutes } from './modules/channels/intake.routes.js'
 import { clientsRoutes, inboxRoutes } from './modules/leads/leads.routes.js'
 import { dealsRoutes } from './modules/deals/deals.routes.js'
-
-// Роли, которые работают с обращениями, сделками и карточками клиентов
-const SALES_ROLES = ['admin', 'manager', 'sales_head']
+import { tasksRoutes } from './modules/tasks/tasks.routes.js'
+import { filesRoutes } from './modules/files/files.routes.js'
+import { notificationsRoutes } from './modules/notifications/notifications.js'
+import { SALES_ROLES, STAFF_ROLES } from './roles.js'
+import { createStorage } from './storage.js'
 
 export function createApp({
   pool,
   channels = createChannels({ telegram: { token: config.telegram.token } }),
   telegramWebhookSecret = config.telegram.webhookSecret,
+  storage = createStorage({ kind: config.fileStorage, dir: config.storageDir, pool }),
 }) {
   const app = express()
   app.disable('x-powered-by')
@@ -37,6 +40,9 @@ export function createApp({
   api.use('/inbox', auth, requireRole(...SALES_ROLES), inboxRoutes({ pool }))
   api.use('/deals', auth, requireRole(...SALES_ROLES), dealsRoutes({ pool, channels }))
   api.use('/clients', auth, requireRole(...SALES_ROLES), clientsRoutes({ pool }))
+  api.use('/tasks', auth, requireRole(...STAFF_ROLES), tasksRoutes({ pool, storage }))
+  api.use('/files', auth, filesRoutes({ pool, storage }))
+  api.use('/notifications', auth, notificationsRoutes({ pool }))
 
   // Точки входа внешних каналов: вызываются сайтом и Telegram, а не веб-интерфейсом
   app.use('/api/public', cors(), publicRoutes({ pool, channels }))

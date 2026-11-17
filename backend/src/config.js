@@ -27,6 +27,10 @@ export const config = {
   jwtSecret: env.JWT_SECRET || 'dev-only-secret',
   jwtTtl: env.JWT_TTL || '12h',
   corsOrigin: env.CORS_ORIGIN || 'http://localhost:5173',
+  // Хранилище содержимого файлов: disk — каталог STORAGE_DIR, db — таблица file_contents (Vercel)
+  fileStorage: env.FILE_STORAGE === 'db' ? 'db' : 'disk',
+  storageDir: env.STORAGE_DIR || 'storage',
+  maxUploadMb: Number(env.MAX_UPLOAD_MB) || 10,
   telegram: {
     token: env.TELEGRAM_BOT_TOKEN || '',
     polling: env.TELEGRAM_POLLING === 'true',

@@ -4,6 +4,10 @@ import { api, setToken, setUnauthorizedHandler } from './api.js'
 const STORAGE_KEY = 'crm.token'
 // Роли, которым доступны обращения, сделки и карточки клиентов
 export const SALES_ROLES = ['admin', 'manager', 'sales_head']
+// Сотрудники агентства — работают с задачами
+export const STAFF_ROLES = ['admin', 'manager', 'sales_head', 'designer', 'marketer', 'director']
+// Видят все задачи и проекты, а не только свои
+export const OVERSIGHT_ROLES = ['admin', 'manager', 'sales_head', 'director']
 
 function readStoredToken() {
   try {
@@ -68,8 +72,10 @@ export const auth = {
   },
 }
 
+// Рабочий экран роли после входа
 export function homeRouteFor(user) {
   if (SALES_ROLES.includes(user.role)) return { name: 'inbox' }
+  if (user.role === 'designer') return { name: 'tasks' }
   return { name: 'home' }
 }
 

@@ -76,3 +76,9 @@ textarea.control { height: auto; padding: 9px 11px; line-height: 1.5; resize: ve
   textarea.control { height: auto; }
   .field > span { font-size: 13px; }
 }
+
+/* Статусы задач (общие для списка, карточки задачи и сделки) */
+.status-new { color: #5d655b; background: #eef0ea; }
+.status-in_progress { color: #1f6f9c; background: #e3f2fb; }
+.status-review { color: #8a5a00; background: #fdf1d6; }
+.status-done { color: #45591b; background: #eaf8c4; }

@@ -5,6 +5,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY migrations ./migrations
 COPY src ./src
+# Каталог файлового хранилища (макеты, счета); в Docker Compose на него смонтирован том
+RUN mkdir -p storage && chown node:node storage
+ENV STORAGE_DIR=/app/storage
 EXPOSE 3000
 USER node
 CMD ["node", "src/server.js"]

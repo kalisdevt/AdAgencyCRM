@@ -31,6 +31,9 @@ services:
       SEED_PASSWORD: ${SEED_PASSWORD:-}
     ports:
       - "3000:3000"
+    volumes:
+      # Файловое хранилище: макеты и счета переживают пересборку контейнера
+      - files:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -44,3 +47,4 @@ services:
 
 volumes:
   db-data:
+  files:

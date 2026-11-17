@@ -4,6 +4,8 @@ import pg from 'pg'
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, Number)
 // bigint-идентификаторы далеки от 2^53, поэтому безопасно читать их как числа
 pg.types.setTypeParser(pg.types.builtins.INT8, Number)
+// Дату без времени (срок задачи) отдаем строкой ГГГГ-ММ-ДД, чтобы часовой пояс сервера ее не сдвигал
+pg.types.setTypeParser(pg.types.builtins.DATE, (value) => value)
 
 export function createPool(connectionString, { max = 10 } = {}) {
   return new pg.Pool({ connectionString, max })

@@ -1,16 +1,20 @@
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { auth, SALES_ROLES } from '../auth.js'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { auth, SALES_ROLES, STAFF_ROLES } from '../auth.js'
+import { notificationsState, refreshUnread } from '../notifications.js'
 
 const router = useRouter()
+const route = useRoute()
 const user = computed(() => auth.user)
 
 const navItems = computed(() =>
   [
     { to: { name: 'inbox' }, label: 'Входящие', roles: SALES_ROLES, icon: 'M4 5.5h16v13H4v-13Z M4.5 13h4l1.5 2h4l1.5-2h4' },
+    { to: { name: 'tasks' }, label: 'Задачи', roles: STAFF_ROLES, icon: 'M9 6.5h10M9 12h10M9 17.5h10M4.5 6.5l1 1 2-2M4.5 12l1 1 2-2M4.5 17.5l1 1 2-2' },
+    { to: { name: 'notifications' }, label: 'Уведомления', roles: [...STAFF_ROLES, 'client'], counter: true, icon: 'M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5h-14l1.5-1.5Z M10 20.5h4' },
     { to: { name: 'users' }, label: 'Пользователи', roles: ['admin'], icon: 'M12 11.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z M5.5 19a6.5 6.5 0 0 1 13 0' },
-    { to: { name: 'home' }, label: 'Главная', roles: ['designer', 'marketer', 'director', 'client'], icon: 'M4.5 11 12 4.5 19.5 11v8.5h-15V11Z' },
+    { to: { name: 'home' }, label: 'Главная', roles: ['marketer', 'director', 'client'], icon: 'M4.5 11 12 4.5 19.5 11v8.5h-15V11Z' },
   ].filter((item) => item.roles.includes(user.value?.role)),
 )
 
@@ -21,6 +25,15 @@ const initials = computed(() =>
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join(''),
 )
+
+// Счетчик уведомлений: опрос раз в 20 секунд и при каждом переходе
+let timer = null
+onMounted(() => {
+  refreshUnread()
+  timer = setInterval(() => !document.hidden && refreshUnread(), 20_000)
+})
+onBeforeUnmount(() => clearInterval(timer))
+watch(() => route.fullPath, () => refreshUnread())
 
 function logout() {
   auth.logout()
@@ -43,6 +56,7 @@ function logout() {
         <RouterLink v-for="item in navItems" :key="item.label" class="nav-link" :to="item.to" :title="item.label">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path :d="item.icon" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
           <span>{{ item.label }}</span>
+          <b v-if="item.counter && notificationsState.unread" class="counter" :aria-label="`Непрочитанных: ${notificationsState.unread}`">{{ notificationsState.unread > 99 ? '99+' : notificationsState.unread }}</b>
         </RouterLink>
         <a v-if="auth.hasRole(...SALES_ROLES)" class="nav-link" href="/request?utm_source=demo&utm_medium=crm&utm_campaign=site-form" target="_blank" rel="noopener" title="Форма заявки на сайте">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M10 6H6a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>

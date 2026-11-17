@@ -45,3 +45,14 @@
   .avatar { display: none; }
   .logout { width: 48px; height: 50px; }
 }
+
+/* Счетчик непрочитанных уведомлений в меню */
+.nav-link { position: relative; }
+.counter { min-width: 18px; height: 18px; display: grid; place-items: center; margin-left: auto; padding: 0 5px; border-radius: 9px; color: #1f2a1d; background: #d6ff70; font-size: 10px; font-weight: 800; }
+.nav-link.router-link-active .counter { color: #d6ff70; background: #1f2a1d; }
+@media (max-width: 1080px) {
+  .counter { position: absolute; top: 3px; right: 3px; margin: 0; }
+}
+@media (max-width: 720px) {
+  .counter { top: 4px; right: calc(50% - 22px); }
+}

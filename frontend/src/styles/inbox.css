@@ -99,3 +99,17 @@
 @media (max-width: 340px) {
   .deal-controls { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Вкладки карточки сделки */
+.tabs { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.tab { height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; color: var(--ink-soft); background: transparent; font-size: 13px; font-weight: 700; cursor: pointer; }
+.tab:hover { color: var(--ink); }
+.tab.active { border-bottom-color: #9fc23a; color: var(--ink); }
+.tab:focus-visible { outline: 2px solid #889879; outline-offset: -2px; }
+.tab-count { min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 5px; border-radius: 9px; color: #1f2a1d; background: #c4ea5a; font-size: 11px; }
+.tab-scroll { min-height: 0; flex: 1; overflow-y: auto; }
+
+@media (max-width: 720px) {
+  .tabs { padding: 0 16px; }
+  .tab { height: 44px; flex: 1; justify-content: center; font-size: 14px; }
+}
