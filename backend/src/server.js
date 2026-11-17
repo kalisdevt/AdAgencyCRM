@@ -18,10 +18,9 @@ try {
 if (applied.length) console.log(`Применены миграции: ${applied.join(', ')}`)
 
 if (process.env.SEED_DEMO === 'true') {
-  const { seedUsers, seedInquiries } = await import('./db/seed.js')
-  const users = await seedUsers(pool)
-  const inquiries = await seedInquiries(pool)
-  if (users || inquiries) console.log(`Демо-данные: пользователей ${users}, обращений ${inquiries}`)
+  const { seedDemo } = await import('./db/seed.js')
+  const { users, inquiries, scenario } = await seedDemo(pool)
+  if (users || inquiries || scenario) console.log(`Демо-данные: пользователей ${users}, обращений ${inquiries}${scenario ? ', демо-сценарий создан' : ''}`)
 }
 
 const channels = createChannels({ telegram: { token: config.telegram.token } })

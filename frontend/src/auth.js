@@ -6,6 +6,8 @@ const STORAGE_KEY = 'crm.token'
 export const SALES_ROLES = ['admin', 'manager', 'sales_head']
 // Сотрудники агентства — работают с задачами
 export const STAFF_ROLES = ['admin', 'manager', 'sales_head', 'designer', 'marketer', 'director']
+// Видят отчеты (набор отчетов зависит от роли)
+export const REPORT_ROLES = ['admin', 'sales_head', 'marketer', 'director']
 // Видят все задачи и проекты, а не только свои
 export const OVERSIGHT_ROLES = ['admin', 'manager', 'sales_head', 'director']
 
@@ -77,6 +79,8 @@ export function homeRouteFor(user) {
   if (SALES_ROLES.includes(user.role)) return { name: 'inbox' }
   if (user.role === 'designer') return { name: 'tasks' }
   if (user.role === 'director') return { name: 'projects' }
+  if (user.role === 'client') return { name: 'portal' }
+  if (user.role === 'marketer') return { name: 'reports' }
   return { name: 'home' }
 }
 

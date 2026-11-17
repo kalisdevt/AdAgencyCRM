@@ -1,11 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { auth, homeRouteFor, onSessionExpired, OVERSIGHT_ROLES, SALES_ROLES, STAFF_ROLES } from './auth.js'
+import { auth, homeRouteFor, onSessionExpired, OVERSIGHT_ROLES, REPORT_ROLES, SALES_ROLES, STAFF_ROLES } from './auth.js'
 import AppLayout from './views/AppLayout.vue'
 import ClientView from './views/ClientView.vue'
 import HomeView from './views/HomeView.vue'
 import InboxView from './views/InboxView.vue'
 import LoginView from './views/LoginView.vue'
 import NotificationsView from './views/NotificationsView.vue'
+import ReportsView from './views/ReportsView.vue'
+import DictionariesView from './views/DictionariesView.vue'
+import PortalView from './views/PortalView.vue'
 import ProjectsView from './views/ProjectsView.vue'
 import ProjectView from './views/ProjectView.vue'
 import RequestFormView from './views/RequestFormView.vue'
@@ -30,7 +33,10 @@ const router = createRouter({
         { path: 'tasks/:id(\\d+)', name: 'task', component: TaskView, meta: { roles: STAFF_ROLES, title: 'Задача' } },
         { path: 'projects', name: 'projects', component: ProjectsView, meta: { roles: OVERSIGHT_ROLES, title: 'Проекты' } },
         { path: 'projects/:id(\\d+)', name: 'project', component: ProjectView, meta: { roles: OVERSIGHT_ROLES, title: 'Проект' } },
-        { path: 'notifications', name: 'notifications', component: NotificationsView, meta: { title: 'Уведомления' } },
+        { path: 'reports', name: 'reports', component: ReportsView, meta: { roles: REPORT_ROLES, title: 'Отчеты' } },
+        { path: 'dictionaries', name: 'dictionaries', component: DictionariesView, meta: { roles: ['admin', 'marketer'], title: 'Справочники' } },
+        { path: 'portal', name: 'portal', component: PortalView, meta: { roles: ['client'], title: 'Мои заказы' } },
+        { path: 'notifications', name: 'notifications', component: NotificationsView, meta: { roles: STAFF_ROLES, title: 'Уведомления' } },
         { path: 'users', name: 'users', component: UsersView, meta: { roles: ['admin'], title: 'Пользователи' } },
       ],
     },

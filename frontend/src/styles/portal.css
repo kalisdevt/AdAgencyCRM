@@ -1,0 +1,44 @@
+.page { max-width: 920px; padding: 32px 28px 48px; }
+.page-header { margin-bottom: 26px; }
+.kicker { margin: 0 0 8px; color: var(--ink-muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.page-header h1 { margin: 0; font-size: 30px; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.page-header .muted { margin: 8px 0 0; font-size: 14px; line-height: 1.5; }
+.section { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+.section h2 { margin: 0; font-size: 17px; letter-spacing: -.02em; }
+.project { display: flex; flex-direction: column; gap: 18px; padding: 20px 22px; }
+.project-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.project h3 { margin: 0; font-size: 17px; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.project-head .muted { margin: 5px 0 0; font-size: 13px; }
+.badge-current { color: #8a5a00; background: #fdf1d6; }
+.track { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.track li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.track li + li::before { content: ''; position: absolute; top: 13px; right: calc(50% + 15px); width: calc(100% - 30px); height: 2px; background: #e2e6dc; }
+.track li.done + li::before { background: #9fc23a; }
+.dot { width: 28px; height: 28px; display: grid; place-items: center; border: 2px solid #dfe3d9; border-radius: 50%; color: #1f2a1d; background: var(--surface); font-size: 12px; font-weight: 800; }
+.track li.done .dot { border-color: #9fc23a; background: #c4ea5a; }
+.track li.current .dot { border-color: #e5c24f; box-shadow: 0 0 0 4px #fdf1d6; }
+.track b { font-size: 12px; }
+.track li:not(.done):not(.current) b { color: var(--ink-muted); font-weight: 600; }
+.track small { color: var(--ink-muted); font-size: 11px; }
+.orders { margin: 0; padding: 0; overflow: hidden; list-style: none; }
+.orders li { display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
+.orders li + li { border-top: 1px solid #eff1ec; }
+.order-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.order-main b { font-size: 14px; overflow-wrap: anywhere; }
+.order-main small { color: var(--ink-muted); font-size: 12px; }
+
+@media (max-width: 720px) {
+  .page { padding: 20px 16px 32px; }
+  .page-header h1 { font-size: 24px; }
+  .project { padding: 16px; }
+  .project-head { flex-direction: column; }
+  /* Этапы вертикальным списком: пять подписей в строку на телефоне не помещаются */
+  .track { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .track li { flex-direction: row; text-align: left; gap: 10px; }
+  .track li + li::before { display: none; }
+  .track b { font-size: 14px; }
+  .track small { margin-left: auto; font-size: 13px; }
+  .orders li { flex-wrap: wrap; padding: 14px 16px; }
+  .order-main b { font-size: 15px; }
+  .order-main small { font-size: 13px; }
+}
